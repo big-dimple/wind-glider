@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="是男人就飞三次：三飞拿勋章，继续挑战无限飞行纪录。" />
+    <meta name="build-sha" content="%VITE_GIT_SHA%" />
+    <meta name="theme-color" content="#0b1030" />
+    <link rel="icon" href="data:," />
+    <title>是男人就飞三次</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b1030;
+        font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: none;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      #app canvas {
+        display: block;
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

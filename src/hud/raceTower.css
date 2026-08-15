@@ -1,0 +1,32 @@
+.race-tower { position:fixed; z-index:12; left:max(18px,env(safe-area-inset-left)); top:max(146px,calc(env(safe-area-inset-top) + 136px)); display:none; width:214px; color:#f4feff; font-family:system-ui,sans-serif; pointer-events:none; }
+.race-tower.on { display:block; }
+.race-tower-head { padding:5px 8px; border-left:4px solid #55e7ff; background:rgba(4,7,20,.86); color:#55e7ff; font:900 10px/1 system-ui,sans-serif; }
+.race-tower-list { display:flex; flex-direction:column; gap:2px; margin-top:3px; }
+.race-tower-row { --racer-color:#55e7ff; display:grid; grid-template-columns:25px 32px minmax(0,1fr) 50px; align-items:center; min-height:34px; border-left:4px solid var(--racer-color); background:rgba(4,7,20,.76); }
+.race-tower-row.player { background:rgba(8,13,42,.96); box-shadow:3px 0 0 #f4feff inset; }
+.race-tower.compact .race-tower-row:not(.player):not(.near-player) { display:none; }
+.race-tower.flight-focus .race-tower-list,
+.race-tower.flight-focus .race-radio { display:none; }
+.race-tower.flight-focus { width:96px; opacity:.82; }
+.race-tower-row img { width:28px; height:28px; object-fit:cover; object-position:50% 22%; background:#1e1b3a; }
+.race-tower-place { text-align:center; color:var(--racer-color); font:italic 900 13px/1 'Arial Black',Impact,sans-serif; }
+.race-tower-name { overflow:hidden; padding-left:6px; font:italic 900 12px/1 'Arial Black',Impact,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
+.race-tower-gap { padding-right:6px; color:rgba(244,254,255,.7); font:800 9px/1 system-ui,sans-serif; text-align:right; }
+.race-radio { display:none; margin-top:7px; padding:9px 10px; border:1px solid rgba(85,231,255,.55); border-left:4px solid #55e7ff; background:rgba(4,7,20,.92); font:800 11px/1.25 system-ui,sans-serif; }
+.race-radio.on { display:block; animation:race-radio-in .18s ease-out; }
+@keyframes race-radio-in { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:none} }
+@media (max-width:900px),(max-height:520px) {
+  .race-tower { top:max(103px,calc(env(safe-area-inset-top) + 96px)); left:max(8px,env(safe-area-inset-left)); width:168px; }
+  .race-tower-head { padding:3px 5px; font-size:7px; }
+  .race-tower-row { grid-template-columns:19px 24px minmax(0,1fr) 38px; min-height:25px; }
+  .race-tower-row:not(.player):not(.near-player) { display:none; }
+  .race-tower-row img { width:21px; height:21px; }
+  .race-tower-place,.race-tower-name { font-size:8px; }
+  .race-tower-gap { padding-right:3px; font-size:6px; }
+  .race-radio { margin-top:4px; padding:5px 6px; font-size:8px; }
+}
+@media (max-height:340px) and (orientation:landscape) {
+  /* On very short phones the left thumb owns the lower band. Team radio is
+     transient context, so it yields instead of covering steering controls. */
+  .race-radio.on { display:none; }
+}

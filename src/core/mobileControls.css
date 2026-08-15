@@ -1,0 +1,416 @@
+.mobile-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  touch-action: none;
+  font-family: 'Arial Black', 'Arial Bold', Impact, system-ui, sans-serif;
+  font-style: italic;
+  letter-spacing: 0;
+  color: #f4feff;
+  --mobile-ink: #14122b;
+  --mobile-flight: #55e7ff;
+  --mobile-drift: #39ff88;
+  --mobile-drift-progress: 0;
+  --mobile-bank-progress: 0;
+  --mobile-boost-progress: 0;
+  --mobile-flight-progress: 0;
+  --mobile-airbrake-progress: 0;
+  --control-h: clamp(128px, 36vh, 158px);
+  --control-w: clamp(288px, 39vw, 340px);
+}
+
+.mobile-controls button {
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-start,
+.mobile-mode {
+  pointer-events: auto;
+  position: absolute;
+  z-index: 24;
+  border: 1px solid rgba(85, 231, 255, 0.55);
+  border-left-width: 4px;
+  border-radius: 2px;
+  background: rgba(16, 23, 58, 0.94);
+  box-shadow: 0 0 18px rgba(85, 231, 255, 0.16);
+}
+
+.mobile-start {
+  left: 50%;
+  bottom: max(22px, calc(env(safe-area-inset-bottom) + 10px));
+  min-width: 210px;
+  min-height: 54px;
+  padding: 10px 22px;
+  transform: translateX(-50%);
+  color: var(--mobile-flight);
+  font-size: 18px;
+}
+
+.mobile-start:disabled { opacity: 0.9; }
+
+.mobile-mode {
+  /* SOUND owns the top-right corner while choosing a driver. Keep the mode
+     switch alongside it so neither control can intercept the other. */
+  right: max(86px, calc(env(safe-area-inset-right) + 76px));
+  top: max(10px, env(safe-area-inset-top));
+  min-width: 94px;
+  min-height: 38px;
+  padding: 5px 10px;
+  border-radius: 19px;
+  color: var(--mobile-flight);
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-controls.activated .mobile-mode {
+  opacity: 0.82;
+  pointer-events: auto;
+}
+
+/* Full-screen viewers own every game-control pixel. Keep the orientation
+   blocker available so portrait never becomes a supported play layout. */
+.mobile-controls.overlay-hidden .mobile-start,
+.mobile-controls.overlay-hidden .mobile-mode,
+.mobile-controls.overlay-hidden .mobile-action-zones,
+.mobile-controls.overlay-hidden .mobile-steer-zones,
+.mobile-controls.overlay-hidden .mobile-tilt-meter {
+  display: none !important;
+}
+
+.mobile-action-zones,
+.mobile-steer-zones {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: var(--control-w);
+  height: var(--control-h);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.mobile-steer-zones {
+  left: max(10px, env(safe-area-inset-left));
+  display: none;
+}
+
+.mobile-action-zones {
+  right: max(10px, env(safe-area-inset-right));
+  display: block;
+}
+
+.mobile-action-zones button,
+.mobile-steer-zones button {
+  pointer-events: none;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  --control-face-y: 58%;
+}
+
+.mobile-action-zones button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+.mobile-action-zones [data-mobile-action="flight"] {
+  left: 0;
+  --control-face-y: 39%;
+}
+
+.mobile-action-zones [data-mobile-action="drift"] {
+  right: 0;
+  --control-face-y: 59%;
+}
+
+.mobile-controls.controls-visible .mobile-action-zones button,
+.mobile-controls.touch-steer.controls-visible .mobile-steer-zones button {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.mobile-controls.touch-steer.controls-visible .mobile-steer-zones { display: grid; }
+
+.mobile-controls.preparing [data-mobile-action="flight"] {
+  pointer-events: none;
+  opacity: 0.32;
+  filter: grayscale(0.8);
+}
+
+.mobile-controls.presentation [data-mobile-action] {
+  opacity: 0.24;
+}
+
+.mobile-controls.presentation [data-mobile-action="flight"],
+.mobile-controls.presentation [data-mobile-action="flight"] * {
+  pointer-events: none !important;
+}
+
+.mobile-controls.presentation [data-mobile-action="flight"] {
+  filter: grayscale(0.8);
+}
+
+.mobile-action-zones span,
+.mobile-steer-zones span {
+  position: absolute;
+  left: 50%;
+  top: var(--control-face-y);
+  width: clamp(78px, 22vh, 96px);
+  height: clamp(78px, 22vh, 96px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(244, 254, 255, 0.46);
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: rgba(10, 16, 42, 0.68);
+  box-shadow:
+    inset 0 0 0 5px rgba(20, 18, 43, 0.5),
+    inset 0 -12px 0 rgba(20, 18, 43, 0.24),
+    0 8px 20px rgba(0, 0, 0, 0.22),
+    0 0 14px color-mix(in srgb, currentColor 16%, transparent);
+  line-height: 1;
+  text-shadow: 2px 2px 0 var(--mobile-ink), 0 0 12px currentColor;
+  transition: transform 90ms ease-out, border-color 90ms ease-out, box-shadow 90ms ease-out;
+}
+
+.mobile-action-zones span::before,
+.mobile-steer-zones span::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px solid currentColor;
+  border-radius: inherit;
+  opacity: 0.24;
+}
+
+.mobile-action-zones b,
+.mobile-steer-zones b { display: block; font: inherit; }
+.mobile-action-zones small,
+.mobile-steer-zones small {
+  display: block;
+  margin-top: 5px;
+  color: rgba(244, 254, 255, 0.62);
+  font: 900 8px/1 system-ui, sans-serif;
+  font-style: normal;
+}
+
+.mobile-steer-zones button {
+  color: rgba(244, 254, 255, 0.78);
+  font-size: clamp(54px, 10vh, 76px);
+}
+.mobile-steer-zones span {
+  width: clamp(72px, 20vh, 88px);
+  height: clamp(72px, 20vh, 88px);
+  background: rgba(10, 16, 42, 0.52);
+  opacity: 0.78;
+}
+.mobile-steer-zones small { margin-top: -3px; }
+
+.mobile-action-zones button { font-size: clamp(30px, 7vh, 42px); }
+.mobile-action-zones button:first-child { color: var(--mobile-drift); }
+.mobile-action-zones button:last-child { color: var(--mobile-flight); }
+
+.mobile-action-zones [data-mobile-action="drift"] span {
+  width: clamp(84px, 24vh, 100px);
+  height: clamp(84px, 24vh, 100px);
+}
+
+.mobile-action-zones [data-mobile-action="flight"] span {
+  width: clamp(70px, 20vh, 84px);
+  height: clamp(70px, 20vh, 84px);
+  font-size: .86em;
+}
+
+.mobile-action-zones button::after { display: none; }
+
+/* Continuous timing lives on the rim, outside the thumb's occlusion area. */
+.mobile-action-zones button span::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: inherit;
+  background: conic-gradient(from -90deg, currentColor calc(var(--rim-progress, 0) * 1turn), rgba(244,254,255,.16) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  opacity: .72;
+  pointer-events: none;
+}
+.mobile-action-zones [data-mobile-action="drift"] span { --rim-progress: var(--mobile-drift-progress); }
+.mobile-action-zones [data-mobile-action="flight"] span { --rim-progress: var(--mobile-flight-progress); }
+.mobile-controls[data-left-mode='boost']:not(.in-flight) [data-mobile-action="drift"] span { --rim-progress: var(--mobile-boost-progress); }
+.mobile-controls.in-flight [data-mobile-action="drift"] span { --rim-progress: var(--mobile-airbrake-progress); }
+.mobile-controls:not(.in-flight) [data-mobile-action="flight"] span { --rim-progress: 0; }
+.mobile-threshold {
+  position:absolute;
+  inset:-9px;
+  border-radius:50%;
+  transform:rotate(115.2deg);
+  pointer-events:none;
+}
+.mobile-threshold::after {
+  content:'';
+  position:absolute;
+  left:50%;
+  top:-1px;
+  width:3px;
+  height:10px;
+  transform:translateX(-50%);
+  background:#ffcf4a;
+  box-shadow:0 0 7px #ffcf4a;
+}
+.mobile-action-zones button.held,
+.mobile-steer-zones button.held {
+  background: transparent;
+}
+.mobile-action-zones button.held span,
+.mobile-steer-zones button.held span {
+  transform: translate(-50%, -50%) scale(0.94);
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 18%, rgba(10, 16, 42, 0.82));
+  box-shadow: inset 0 0 0 5px rgba(20,18,43,.58), 0 3px 10px rgba(0,0,0,.2), 0 0 24px color-mix(in srgb,currentColor 42%,transparent);
+}
+
+.mobile-controls.flight-ready .mobile-action-zones button:last-child {
+  color: var(--mobile-flight);
+}
+.mobile-controls.flight-ready .mobile-action-zones button:last-child span {
+  border-color: var(--mobile-flight);
+  box-shadow: inset 0 0 0 5px rgba(20,18,43,.5), inset 0 -12px 0 rgba(20,18,43,.24), 0 8px 20px rgba(0,0,0,.22), 0 0 22px rgba(85,231,255,.42);
+}
+.mobile-controls.flight-ready .mobile-action-zones button:last-child::after { display: none; }
+.mobile-controls.flight-extension-ready .mobile-action-zones button:last-child {
+  color: #f8ff7a;
+}
+.mobile-controls[data-flight-mode='finish'] .mobile-action-zones button:last-child { color:#ffcf4a; }
+.mobile-controls[data-flight-mode='finish'] .mobile-action-zones button:last-child span::after { --rim-progress:1; opacity:1; }
+.mobile-controls[data-left-mode='finish'] .mobile-action-zones button:first-child { color:#ffcf4a; }
+.mobile-controls[data-left-mode='finish'] .mobile-action-zones button:first-child span {
+  border-color:#ffcf4a;
+  box-shadow:inset 0 0 0 5px rgba(20,18,43,.5),0 0 18px rgba(255,207,74,.3);
+}
+.mobile-controls[data-flight-mode='finish'] [data-mobile-action='flight'][aria-disabled='true'] {
+  opacity:.62;
+}
+.mobile-controls.flight-extension-ready .mobile-action-zones button:last-child span {
+  border-color: #f8ff7a;
+  background: color-mix(in srgb, #55e7ff 12%, rgba(10, 16, 42, 0.82));
+  box-shadow:
+    inset 0 0 0 5px rgba(20,18,43,.5),
+    inset 0 -12px 0 rgba(20,18,43,.24),
+    0 8px 20px rgba(0,0,0,.22),
+    0 0 12px rgba(248,255,122,.5),
+    0 0 28px rgba(85,231,255,.34);
+}
+.mobile-stock {
+  content: 'x0';
+  position: absolute;
+  right: 2px;
+  top: 7px;
+  color: rgba(244, 254, 255, 0.52);
+  font: 900 12px/1 system-ui, sans-serif;
+  text-shadow: 1px 1px 0 var(--mobile-ink);
+}
+.mobile-controls[data-flight-charges='1'] .mobile-stock { color: var(--mobile-flight); }
+.mobile-controls[data-flight-charges='2'] .mobile-stock { color: #f8ff7a; }
+.mobile-controls.drift-release-ready .mobile-action-zones button:first-child {
+  color: #f8ff7a;
+}
+.mobile-controls.drift-release-ready .mobile-action-zones button:first-child span {
+  border-color:#f8ff7a;
+  box-shadow:inset 0 0 0 5px rgba(20,18,43,.5),inset 0 -12px 0 rgba(20,18,43,.24),0 8px 20px rgba(0,0,0,.22),0 0 22px rgba(248,255,122,.48);
+}
+.mobile-controls.drift-bank-full .mobile-action-zones button:first-child span::after { opacity: 1; filter: brightness(1.25); }
+.mobile-controls.in-flight .mobile-action-zones button:first-child { color: #ffcf4a; }
+.mobile-controls.turn-warning .mobile-action-zones button:first-child {
+  color: #ffcf4a;
+}
+.mobile-controls.turn-warning .mobile-action-zones button:first-child span { border-color:#ffcf4a; box-shadow:inset 0 0 0 5px rgba(20,18,43,.5),0 0 24px rgba(255,207,74,.42); }
+.mobile-controls.route-action-bank .mobile-action-zones [data-mobile-action="drift"] span,
+.mobile-controls.route-action-launch .mobile-action-zones [data-mobile-action="flight"] span {
+  border-color: #ffcf4a;
+  box-shadow: inset 0 0 0 5px rgba(20,18,43,.5), 0 0 18px rgba(255,207,74,.34);
+}
+.mobile-controls.route-action-turn .mobile-action-zones [data-mobile-action="drift"] span,
+.mobile-controls.route-turn-left .mobile-steer-zones [data-mobile-action="left"] span,
+.mobile-controls.route-turn-right .mobile-steer-zones [data-mobile-action="right"] span {
+  border-color: #ffcf4a;
+  color: #ffcf4a;
+  box-shadow: inset 0 0 0 5px rgba(20,18,43,.5), 0 0 20px rgba(255,207,74,.38);
+}
+.mobile-controls.flight-urgent .mobile-action-zones button:last-child span::after { filter: hue-rotate(28deg); }
+.mobile-controls.flight-critical .mobile-action-zones button:last-child span::after { filter: hue-rotate(110deg) saturate(1.4); opacity: 1; }
+
+.mobile-tilt-meter {
+  position: absolute;
+  left: max(54px, calc(env(safe-area-inset-left) + 44px));
+  bottom: max(26px, calc(env(safe-area-inset-bottom) + 18px));
+  width: 150px;
+  height: 34px;
+  border-bottom: 2px solid rgba(244, 254, 255, 0.3);
+  border-radius: 0 0 75px 75px;
+  background: linear-gradient(90deg, transparent 49%, rgba(244,254,255,.42) 49% 51%, transparent 51%);
+  opacity: 0;
+}
+
+.mobile-controls.controls-visible:not(.touch-steer) .mobile-tilt-meter { opacity: 0.72; }
+.mobile-tilt-meter i {
+  position: absolute;
+  left: 71px;
+  top: 17px;
+  width: 9px;
+  height: 13px;
+  background: var(--mobile-flight);
+  box-shadow: 0 0 10px var(--mobile-flight);
+}
+
+.mobile-orientation { display: none; }
+
+@media (orientation: portrait) {
+  .mobile-controls { z-index: 100; }
+  .mobile-orientation {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    pointer-events: auto;
+    background: rgba(8, 12, 28, 0.97);
+    color: #f4feff;
+    font-size: 22px;
+    text-align: center;
+  }
+  .mobile-rotate-icon { color: var(--mobile-flight); font-size: 54px; line-height: 1; }
+  .mobile-orientation span { color: rgba(244, 254, 255, 0.68); font: 800 12px/1.2 system-ui, sans-serif; }
+  .mobile-start,
+  .mobile-mode,
+  .mobile-action-zones,
+  .mobile-steer-zones,
+  .mobile-tilt-meter { display: none !important; }
+}
+
+@media (max-height: 330px) and (orientation: landscape) {
+  .mobile-controls { --control-h: 122px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-action-zones button.held span,
+  .mobile-steer-zones button.held span { transform: translate(-50%, -50%); }
+}

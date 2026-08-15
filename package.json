@@ -1,0 +1,32 @@
+{
+  "name": "wind-glider",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Ghibli-style watercolor sky and sea glider racing game — pure WebGL/Three.js, deterministic physics, zero bundler bloat, mobile-ready.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "shot": "node harness/screenshot.mjs",
+    "verify:flight": "node harness/screenshot.mjs --verify-flight",
+    "verify:mobile": "node harness/screenshot.mjs --mobile --verify-mobile",
+    "verify:performance": "node harness/screenshot.mjs --verify-performance",
+    "verify:collision": "node harness/collision.mjs",
+    "verify:audio": "node harness/audio.mjs",
+    "verify:systems": "node harness/systems.mjs",
+    "verify:closeout": "node scripts/verify-closeout.mjs",
+    "verify:release": "npm run build && npm run verify:flight && npm run verify:mobile && npm run verify:collision && npm run verify:audio && npm run verify:systems && npm run verify:performance",
+    "release:checked": "bash scripts/release-checked.sh"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.0",
+    "playwright": "^1.62.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.2.1"
+  }
+}

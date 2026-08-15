@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "remote": "origin",
+  "branch": "main",
+  "runtime": {
+    "nodeMajor": 22
+  },
+  "gates": [
+    {
+      "name": "knowledge-workspace-closeout",
+      "argv": ["npm", "run", "verify:closeout"]
+    },
+    {
+      "name": "build",
+      "argv": ["npm", "run", "build"]
+    },
+    {
+      "name": "gameplay-contract",
+      "argv": ["npm", "run", "verify:flight"]
+    },
+    {
+      "name": "mobile-contract",
+      "argv": ["npm", "run", "verify:mobile"]
+    },
+    {
+      "name": "collision-contract",
+      "argv": ["npm", "run", "verify:collision"]
+    },
+    {
+      "name": "audio-contract",
+      "argv": ["npm", "run", "verify:audio"]
+    },
+    {
+      "name": "records-rivals-endurance-contract",
+      "argv": ["npm", "run", "verify:systems"]
+    },
+    {
+      "name": "performance-contract",
+      "argv": ["npm", "run", "verify:performance"]
+    }
+  ],
+  "pages": {
+    "workflow": "deploy.yml",
+    "timeout": 600,
+    "interval": 5
+  }
+}
