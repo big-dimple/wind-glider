@@ -26,6 +26,7 @@
 - `npm run dev`：启动本地 Vite 开发服务。
 - `npm run build`：生产环境 TypeScript 强类型检查与静态资产打包。
 - `npm run verify:release`：执行端到端飞行、碰撞、音频、性能全量契约测试。
+- `npm run release:checked`：执行安全受控发布与 GitHub 远端推送。
 
 ---
 

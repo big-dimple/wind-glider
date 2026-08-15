@@ -16,6 +16,7 @@
 4. **常用命令**：
    - 构建验证：`npm run build`
    - 契约验证：`npm run verify:release`
+   - 发布验证：`npm run release:checked`
    - 本地开发：`npm run dev`
 
 ---
