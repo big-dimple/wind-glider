@@ -26,7 +26,7 @@ interface HapticProfile {
   strong: number;
   weak: number;
   duration: number;
-  mobileDuration: number;
+  mobileDuration: number | number[];
   priority: number;
   cooldown: number;
   lane: HapticLane;
@@ -38,13 +38,13 @@ const PROFILES: Record<HapticCue, HapticProfile> = {
   charge: { strong: 0.18, weak: 0.38, duration: 24, mobileDuration: 12, priority: 3, cooldown: 0.2, lane: 'control' },
   boost: { strong: 0.24, weak: 0.5, duration: 30, mobileDuration: 14, priority: 4, cooldown: 0.2, lane: 'control' },
   'air-brake': { strong: 0.18, weak: 0.42, duration: 20, mobileDuration: 10, priority: 3, cooldown: 0.22, lane: 'control' },
-  launch: { strong: 0.34, weak: 0.5, duration: 34, mobileDuration: 16, priority: 5, cooldown: 0.2, lane: 'control' },
+  launch: { strong: 0.38, weak: 0.54, duration: 36, mobileDuration: [25, 30, 40], priority: 5, cooldown: 0.2, lane: 'control' },
   extend: { strong: 0.24, weak: 0.46, duration: 28, mobileDuration: 14, priority: 4, cooldown: 0.2, lane: 'control' },
-  gate: { strong: 0.18, weak: 0.36, duration: 22, mobileDuration: 10, priority: 4, cooldown: 0.18, lane: 'control' },
-  landing: { strong: 0.3, weak: 0.18, duration: 30, mobileDuration: 14, priority: 5, cooldown: 0.22, lane: 'impact' },
+  gate: { strong: 0.2, weak: 0.38, duration: 22, mobileDuration: 15, priority: 4, cooldown: 0.18, lane: 'control' },
+  landing: { strong: 0.32, weak: 0.22, duration: 32, mobileDuration: [14, 18, 14], priority: 5, cooldown: 0.22, lane: 'impact' },
   'collision-light': { strong: 0.26, weak: 0.18, duration: 28, mobileDuration: 12, priority: 5, cooldown: 0.2, lane: 'impact' },
   'collision-heavy': { strong: 0.55, weak: 0.25, duration: 52, mobileDuration: 20, priority: 7, cooldown: 0.28, lane: 'impact' },
-  warning: { strong: 0.12, weak: 0.3, duration: 20, mobileDuration: 10, priority: 3, cooldown: 0.9, lane: 'presentation' },
+  warning: { strong: 0.14, weak: 0.32, duration: 22, mobileDuration: [16, 24, 16], priority: 3, cooldown: 0.9, lane: 'presentation' },
   defeat: { strong: 0.68, weak: 0.28, duration: 68, mobileDuration: 20, priority: 9, cooldown: 0.8, lane: 'presentation' },
   medal: { strong: 0.34, weak: 0.54, duration: 54, mobileDuration: 18, priority: 8, cooldown: 1, lane: 'presentation' },
 };
@@ -181,7 +181,10 @@ export class Haptics {
       played = this.gamepad.rumble(profile.strong * amount, profile.weak * amount, profile.duration);
     } else if (device === 'mobile' && typeof navigator.vibrate === 'function') {
       try {
-        played = navigator.vibrate(Math.max(1, Math.round(profile.mobileDuration * amount)));
+        const pattern = Array.isArray(profile.mobileDuration)
+          ? profile.mobileDuration.map((d, idx) => idx % 2 === 0 ? Math.max(1, Math.round(d * amount)) : d)
+          : Math.max(1, Math.round(profile.mobileDuration * amount));
+        played = navigator.vibrate(pattern);
       } catch {
         played = false;
       }

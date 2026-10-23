@@ -383,7 +383,7 @@
   .driver-coach-toggle { min-height:34px; margin-top:8px; font-size:10px; }
 }
 
-@media (pointer:coarse) and (orientation:landscape) {
+@media (pointer:coarse) and (orientation:landscape), (max-height:520px) and (orientation:landscape), (hover:none) and (orientation:landscape) {
   .driver-controller-status { display:none; }
   .driver-mobile-backdrop {
     position:absolute;
@@ -463,7 +463,7 @@
 /* Mobile contract screen: one standing driver plus one decision column. The
    six destination cards stay in the DOM for desktop/accessibility, but they
    do not become three opaque panels over the mobile portrait. */
-@media (pointer:coarse) and (orientation:landscape) {
+@media (pointer:coarse) and (orientation:landscape), (max-height:520px) and (orientation:landscape), (hover:none) and (orientation:landscape) {
   .driver-select {
     grid-template-rows:auto minmax(0,1fr) auto;
     gap:5px;
@@ -544,7 +544,7 @@
   .driver-select-footer { min-height:40px; }
 }
 
-@media (pointer:coarse) and (orientation:landscape) and (max-height:340px) {
+@media (pointer:coarse) and (orientation:landscape) and (max-height:340px), (max-height:340px) and (orientation:landscape) {
   .driver-select { grid-template-rows:auto minmax(0,1fr) 37px; }
   .driver-featured { width:min(calc(100% - 154px),650px); }
   .driver-switch-control { width:68px; height:68px; grid-template-rows:38px auto; }
@@ -560,7 +560,7 @@
 /* The standing image is a supporting echo only. The selected driver remains
    an opaque, inspectable subject on touch screens; screen-blending the only
    portrait made dark suits disappear into the water background. */
-@media (pointer:coarse) and (orientation:landscape) {
+@media (pointer:coarse) and (orientation:landscape), (max-height:520px) and (orientation:landscape), (hover:none) and (orientation:landscape) {
   .driver-mobile-backdrop {
     opacity:.12;
     mix-blend-mode:screen;
@@ -579,7 +579,7 @@
     filter:saturate(1.08) contrast(1.06);
   }
   .driver-select.switching .driver-mobile-backdrop {
-    animation:driver-mobile-backdrop-soft .42s cubic-bezier(.18,.75,.2,1) both;
+    animation:driver-mobile-backdrop-soft .48s cubic-bezier(.18,.75,.2,1) both;
   }
 }
 

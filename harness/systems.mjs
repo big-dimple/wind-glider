@@ -74,8 +74,8 @@ try {
   assert.equal(new Set(portraits.map((portrait) => portrait.src)).size, 6, 'every local driver portrait must decode distinctly');
   assert.ok(portraits.every((portrait) => portrait.width === 640 && portrait.height === 960),
     `all portraits must use the mobile-safe 2:3 master: ${JSON.stringify(portraits)}`);
-  assert.ok(portraits.some((portrait) => portrait.name === 'TIDE') && portraits.some((portrait) => portrait.name === 'SOL'),
-    'both women must be selectable');
+  assert.ok(portraits.some((portrait) => portrait.name === '苏轼') && portraits.some((portrait) => portrait.name === '清照'),
+    'both master pilots must be selectable');
   assert.equal(await recordsPage.locator('.driver-card').count(), 6, 'six drivers must remain reachable');
   assert.equal(await recordsPage.locator('.driver-card:visible').count(), 3,
     'the carousel must show only previous, current, and next drivers');
@@ -92,12 +92,12 @@ try {
     'archive utilities must stay out of the selection viewport');
 
   const driverHandling = {
-    axle: [1, 1, 1, 1.04],
-    tide: [0.99, 1.01, 0.96, 1.06],
-    sol: [1.05, 0.97, 1.02, 0.99],
-    reef: [1.04, 1.03, 1.04, 0.98],
-    kai: [1.01, 1.04, 0.99, 1.04],
-    jinx: [0.98, 1.02, 1.06, 0.97],
+    sushi: [1, 1, 1, 1.04],
+    qingzhao: [0.99, 1.01, 0.96, 1.06],
+    xiaofeng: [1.05, 0.97, 1.02, 0.99],
+    zhoubotong: [1.04, 1.03, 1.04, 0.98],
+    kongming: [1.01, 1.04, 0.99, 1.04],
+    wawa: [0.98, 1.02, 1.06, 0.97],
   };
   for (const [id, expected] of Object.entries(driverHandling)) {
     await recordsPage.locator(`.driver-dot[data-driver="${id}"]`).click();
@@ -275,28 +275,28 @@ try {
   await recordsPage.waitForFunction(() => window.__harness?.ready);
   assert.deepEqual(await recordsPage.evaluate(() => window.__harness.recordsState()), state, 'v4 records must survive reload');
 
-  await recordsPage.evaluate(() => localStorage.setItem('board-race:driver:v1', 'tide'));
+  await recordsPage.evaluate(() => localStorage.setItem('board-race:driver:v1', 'qingzhao'));
   await recordsPage.reload({ waitUntil: 'load', timeout: 60000 });
   await recordsPage.waitForFunction(() => window.__harness?.ready);
   const exported = JSON.parse(await recordsPage.evaluate(() => window.__harness.recordsExport()));
   assert.equal(exported.schema, 'board-race-save');
-  assert.equal(exported.selectedDriverId, 'tide');
+  assert.equal(exported.selectedDriverId, 'qingzhao');
   assert.equal(exported.records.bestFlights, 4);
 
   const importedDriver = await recordsPage.evaluate(() => window.__harness.recordsImport(JSON.stringify({
-    schema: 'board-race-save', selectedDriverId: 'sol', records: {
+    schema: 'board-race-save', selectedDriverId: 'xiaofeng', records: {
       version: 4, runs: 9, ordinaryUnlocked: true, manMedalsTotal: 6, excellentCount: 3,
       bestQualificationTime: 28.4, bestExcellentTime: 27.1, bestFlights: 8,
-      bestRouteProgress: 0.7, closestMissM: 0.03, bestFlightsByDriver: { sol: 8 },
+      bestRouteProgress: 0.7, closestMissM: 0.03, bestFlightsByDriver: { xiaofeng: 8 },
       farSeaDossierUnlocked: true, rivalWins: 2,
     },
   })));
-  assert.equal(importedDriver.selectedDriverId, 'sol');
+  assert.equal(importedDriver.selectedDriverId, 'xiaofeng');
   state = await recordsPage.evaluate(() => window.__harness.recordsState());
   assert.equal(state.runs, 9);
   assert.equal(state.bestFlights, 8);
   assert.equal(state.manMedalsTotal, 6);
-  assert.deepEqual(state.bestFlightsByDriver, { sol: 8 });
+  assert.deepEqual(state.bestFlightsByDriver, { xiaofeng: 8 });
   assert.equal((await recordsPage.evaluate(() => window.__harness.coachState())).status, 'expert',
     'an imported expert save must update the live coach, not only the serialized record');
   await recordsPage.evaluate(() => window.__harness.setCoachEnabled(true));
@@ -345,5 +345,7 @@ try {
   console.log(JSON.stringify({ rival, endurance }, null, 2));
   await browser.close();
 } finally {
-  server.kill('SIGTERM');
+  try {
+    server.kill('SIGKILL');
+  } catch {}
 }

@@ -41,6 +41,11 @@ import {
   type FlightRouteFailReason,
   type IBoat,
   type ICourse,
+  type ThermalUpdraftDef,
+  type ThermalSample,
+  type WindRingDef,
+  type WindTunnelDef,
+  type WindTunnelSample,
 } from '../contracts';
 import { PALETTE } from '../core/palette';
 import { RACER_DEFS } from './racers';
@@ -191,9 +196,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.1, lateral: 0, height: 4.5 },
       { u: 0.115, lateral: 0, height: 0 },
     ],
-    corridorHalfWidth: 6.5,
-    gateHalfWidth: 6.5,
-    passHalfWidth: 6.825,
+    corridorHalfWidth: 16.0,
+    gateHalfWidth: 9.0,
+    passHalfWidth: 12.5,
     targetSpeed: 42,
     qualifyFromU: 0.012,
     launchFromU: 0.045,
@@ -214,9 +219,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.3, lateral: 23, height: 4.5 },
       { u: 0.315, lateral: 0, height: 0 },
     ],
-    corridorHalfWidth: 5.5,
-    gateHalfWidth: 5.5,
-    passHalfWidth: 5.775,
+    corridorHalfWidth: 16.0,
+    gateHalfWidth: 9.0,
+    passHalfWidth: 12.5,
     targetSpeed: 46,
     qualifyFromU: 0.205,
     launchFromU: 0.233,
@@ -240,9 +245,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.435, lateral: 11, height: 4.5 },
       { u: 0.47, lateral: 0, height: 0 },
     ],
-    corridorHalfWidth: 5,
-    gateHalfWidth: 5,
-    passHalfWidth: 5.25,
+    corridorHalfWidth: 15.5,
+    gateHalfWidth: 9.0,
+    passHalfWidth: 12.0,
     targetSpeed: 48,
     qualifyFromU: 0.33,
     launchFromU: 0.375,
@@ -251,7 +256,7 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
     turnWarningToU: 0.447,
     navigation: {
       turn: { fromU: 0.397, toU: 0.447, direction: 'left' },
-      postGateRecovery: { handoffMarginM: 18, maxDurationS: 5.2 },
+      postGateRecovery: { handoffMarginM: 28, maxDurationS: 5.5 },
     },
   },
   {
@@ -267,9 +272,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.565, lateral: 0, height: 4.5 },
       { u: 0.58, lateral: 0, height: 0 },
     ],
-    corridorHalfWidth: 8,
-    gateHalfWidth: 8,
-    passHalfWidth: 8,
+    corridorHalfWidth: 16.0,
+    gateHalfWidth: 9.5,
+    passHalfWidth: 13.0,
     targetSpeed: 46,
     qualifyFromU: 0.482,
     launchFromU: 0.503,
@@ -294,12 +299,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.677, lateral: -11, height: 4.5 },
       { u: 0.72, lateral: 0, height: 0 },
     ],
-    // The strongest lateral route needs a recovery funnel before its precise
-    // 5.775m scoring portal. At full vector air-brake the lower approach speed
-    // otherwise lets a correct late correction trip the corridor first.
-    corridorHalfWidth: 7,
-    gateHalfWidth: 5.5,
-    passHalfWidth: 5.775,
+    corridorHalfWidth: 16.5,
+    gateHalfWidth: 9.0,
+    passHalfWidth: 12.5,
     targetSpeed: 48,
     qualifyFromU: 0.59,
     launchFromU: 0.62,
@@ -329,9 +331,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.819, lateral: 10, height: 4.5 },
       { u: 0.855, lateral: 0, height: 0 },
     ],
-    corridorHalfWidth: 5,
-    gateHalfWidth: 5,
-    passHalfWidth: 5.25,
+    corridorHalfWidth: 15.5,
+    gateHalfWidth: 9.0,
+    passHalfWidth: 12.0,
     targetSpeed: 50,
     qualifyFromU: 0.73,
     launchFromU: 0.76,
@@ -355,9 +357,9 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
       { u: 0.948, lateral: -3, height: 4.5 },
       { u: 0.975, lateral: 0, height: 0 },
     ],
-    corridorHalfWidth: 5.5,
-    gateHalfWidth: 5.5,
-    passHalfWidth: 5.775,
+    corridorHalfWidth: 15.5,
+    gateHalfWidth: 9.0,
+    passHalfWidth: 12.0,
     targetSpeed: 50,
     qualifyFromU: 0.865,
     launchFromU: 0.89,
@@ -367,15 +369,124 @@ export const FLIGHT_ROUTES: readonly FlightRouteDefinition[] = [
   },
 ] as const;
 
+// --------------------------------------------------- thermal updrafts ----
+
+export const THERMAL_UPDRAFTS: readonly ThermalUpdraftDef[] = [
+  {
+    id: 'updraft-1-cape',
+    name: '海岬暖气流柱',
+    x: 142,
+    z: 445,
+    baseY: 0,
+    height: 26,
+    radius: 15,
+    coreRadius: 6.5,
+    liftSpeed: 12.5,
+  },
+  {
+    id: 'updraft-2-plateau',
+    name: '高原云阶暖气流柱',
+    x: 310,
+    z: 500,
+    baseY: 0,
+    height: 28,
+    radius: 16,
+    coreRadius: 7.0,
+    liftSpeed: 13.5,
+  },
+  {
+    id: 'updraft-3-canyon',
+    name: '拉普达浮岛金色上升流',
+    x: 460,
+    z: 360,
+    baseY: 0,
+    height: 65,
+    radius: 20,
+    coreRadius: 8.5,
+    liftSpeed: 14.0,
+  },
+  {
+    id: 'updraft-4-airtime',
+    name: '晴空大直道阳照上升流',
+    x: 230,
+    z: 160,
+    baseY: 0,
+    height: 65,
+    radius: 20,
+    coreRadius: 8.5,
+    liftSpeed: 14.5,
+  },
+  {
+    id: 'updraft-5-carousel',
+    name: '外海回旋暖气流柱',
+    x: 120,
+    z: -160,
+    baseY: 0,
+    height: 26,
+    radius: 16,
+    coreRadius: 7.0,
+    liftSpeed: 12.0,
+  },
+] as const;
+
+// ------------------------------------------------------- wind tunnels ----
+
+export const WIND_TUNNELS: readonly WindTunnelDef[] = [
+  {
+    id: 'tunnel-chicane-climb',
+    name: '峡谷天梯加速风道',
+    targetSpeed: 52,
+    boostStrength: 1.25,
+    rings: [
+      { x: 260, y: 4.8, z: 462, dirX: 0.88, dirY: 0.12, dirZ: 0.46, radius: 7.2 },
+      { x: 310, y: 5.2, z: 495, dirX: 0.94, dirY: 0.05, dirZ: -0.34, radius: 7.2 },
+      { x: 360, y: 4.8, z: 485, dirX: 0.82, dirY: -0.08, dirZ: -0.57, radius: 7.2 },
+    ],
+  },
+  {
+    id: 'tunnel-canyon-pass',
+    name: '高空悬廊穿云风道',
+    targetSpeed: 54,
+    boostStrength: 1.35,
+    rings: [
+      { x: 480, y: 38.0, z: 410, dirX: 0.42, dirY: 0.05, dirZ: -0.91, radius: 8.2 },
+      { x: 505, y: 40.0, z: 340, dirX: 0.05, dirY: 0.02, dirZ: -1.0, radius: 8.2 },
+      { x: 475, y: 44.0, z: 260, dirX: -0.55, dirY: 0.0, dirZ: -0.83, radius: 8.2 },
+    ],
+  },
+  {
+    id: 'tunnel-jetstream',
+    name: '晴空大直道极速喷流风道',
+    targetSpeed: 56,
+    boostStrength: 1.45,
+    rings: [
+      { x: 200, y: 5.2, z: 240, dirX: 0.32, dirY: 0.0, dirZ: -0.95, radius: 7.8 },
+      { x: 235, y: 5.4, z: 150, dirX: 0.35, dirY: 0.0, dirZ: -0.94, radius: 7.8 },
+      { x: 268, y: 5.2, z: 60, dirX: 0.34, dirY: 0.0, dirZ: -0.94, radius: 7.8 },
+    ],
+  },
+  {
+    id: 'tunnel-carousel-slingshot',
+    name: '外海回旋弹射风环',
+    targetSpeed: 54,
+    boostStrength: 1.35,
+    rings: [
+      { x: 260, y: 4.8, z: -100, dirX: -0.62, dirY: 0.0, dirZ: -0.78, radius: 7.5 },
+      { x: 190, y: 5.0, z: -180, dirX: -0.92, dirY: 0.0, dirZ: -0.38, radius: 7.5 },
+      { x: 100, y: 4.8, z: -170, dirX: -0.85, dirY: 0.0, dirZ: 0.52, radius: 7.5 },
+    ],
+  },
+] as const;
+
 /** Compatibility aliases used by a few deterministic harness helpers. */
 export const FLIGHT_ENTRY_U = FLIGHT_ROUTES[0].entryU;
 export const FLIGHT_EXIT_U = FLIGHT_ROUTES[0].exitU;
 export const FLIGHT_GATE_US = FLIGHT_ROUTES[0].gateUs;
-const FLIGHT_CORRIDOR_GRACE = 0.12;
-const FLIGHT_CORRIDOR_FAIL = 0.35;
-const FLIGHT_CORRIDOR_FAIL_DISTANCE = 10;
-const FLIGHT_GATE_BYPASS_U = 2.5 / LAP_LENGTH;
-const FLIGHT_ATTEMPT_EARLY_U = 0.012;
+const FLIGHT_CORRIDOR_GRACE = 0.45;
+const FLIGHT_CORRIDOR_FAIL = 1.6;
+const FLIGHT_CORRIDOR_FAIL_DISTANCE = 32;
+const FLIGHT_GATE_BYPASS_U = 4.5 / LAP_LENGTH;
+const FLIGHT_ATTEMPT_EARLY_U = 0.018;
 
 interface FlightRouteRuntime {
   def: FlightRouteDefinition;
@@ -599,6 +710,24 @@ const _routeSample: CourseSample = {
 };
 const _recoveryVelocity = new THREE.Vector2();
 const _hiddenRecoveryArrow = new THREE.Matrix4().makeScale(0, 0, 0);
+const _thermalSample: ThermalSample = {
+  intensity: 0,
+  liftSpeed: 0,
+  centerX: 0,
+  centerZ: 0,
+};
+const _windTunnelSample: WindTunnelSample = {
+  inside: 0,
+  boost: 0,
+  dirX: 0,
+  dirY: 0,
+  dirZ: 1,
+  ringPassed: false,
+};
+const _particlePos = new THREE.Vector3();
+const _particleQ = new THREE.Quaternion();
+const _particleScale = new THREE.Vector3();
+const _particleMat = new THREE.Matrix4();
 
 /** Central-difference span for tangents (~0.6m of arc). */
 const TAN_DU = 0.6 / LAP_LENGTH;
@@ -866,13 +995,19 @@ const RIBBON_HALF_W = 4;
  * falloff to zero at the ribbon edge — the old hard-stepped translucent
  * flank read as a ghost polygon paralleling the line.
  */
+/**
+ * Luminescent Sea & Wind Stream Navigation Ribbon (水彩海风涡流微光导流带).
+ * Soft, feathered translucent watercolor aura with moving floating chevrons,
+ * leaving over 80% of the underlying wave swells, foam, and caustics clear and luminous.
+ */
 function buildRibbonMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     name: 'RacingLine',
     uniforms: {
       uTime: { value: 0 },
-      uColor: { value: new THREE.Color().setHex(PALETTE.racingLine, THREE.NoColorSpace) },
-      uInk: { value: new THREE.Color().setHex(PALETTE.ink, THREE.NoColorSpace) },
+      uColor: { value: new THREE.Color().setHex(PALETTE.waterMid, THREE.NoColorSpace) },
+      uSkyColor: { value: new THREE.Color().setHex(PALETTE.skyMid, THREE.NoColorSpace) },
+      uFoamColor: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
       uPlayerS: { value: 0 },
       uLapLength: { value: LAP_LENGTH },
       uMaskStart: { value: 0 },
@@ -888,9 +1023,7 @@ function buildRibbonMaterial(): THREE.ShaderMaterial {
       ${WAVES_GLSL}
       void main() {
         vec3 p = position;
-        // ride the swell instead of clipping through it. Lift compromise:
-        // 0.22 read as an elevated rail bridging troughs; 0.1 clips under
-        // far wave slopes (broken line). 0.17 survives both at chase angles.
+        // ride the swell gently above the surface
         p.y = waveHeight(p.xz, uTime) + 0.17;
         vS = uv.x;
         vSide = uv.y;
@@ -902,7 +1035,8 @@ function buildRibbonMaterial(): THREE.ShaderMaterial {
     fragmentShader: /* glsl */ `
       uniform float uTime;
       uniform vec3 uColor;
-      uniform vec3 uInk;
+      uniform vec3 uSkyColor;
+      uniform vec3 uFoamColor;
       uniform float uPlayerS;
       uniform float uLapLength;
       uniform float uMaskStart;
@@ -917,23 +1051,45 @@ function buildRibbonMaterial(): THREE.ShaderMaterial {
         float behind = mod(uPlayerS - vS + uLapLength, uLapLength);
         if (ahead > 170.0 && behind > 12.0) discard;
         if (uGuideActive > 0.5 && vS >= uMaskStart && vS <= uMaskEnd) discard;
-        // hard dash band flowing along the 3.4m directional spine (~14m period)
-        float dash = step(fract(vS * 0.07 - uTime * 0.6), 0.62);
-        float a = abs(vSide);
-        // The inner 42% is the original 3.4m line. Outside it, a faint field
-        // makes distant bends legible without pretending to be a hard road.
-        float core = 1.0 - step(0.42, a);
-        float rail = step(0.42, a) * (1.0 - step(0.5, a));
-        float edge = step(0.5, a) * (1.0 - step(0.59, a));
-        float halo = step(0.59, a) * (1.0 - smoothstep(0.59, 1.0, a));
-        // Preserve a stable locator spine through the full 170m navigation
-        // horizon instead of fading the exact turn-away point to nothing.
-        float localFade = 1.0 - smoothstep(125.0, 170.0, ahead) * 0.28;
-        float fade = (vDist < 220.0 ? 1.0 : 0.62) * max(localFade, step(0.001, behind) * step(behind, 12.0));
-        vec3 col = uColor * (core * (0.68 + 0.72 * dash) + rail * 0.9 + halo * 0.42)
-                 + uInk * edge;
-        float alpha = (core * (0.34 + dash * 0.66) + rail * 0.9 + edge * 0.92 + halo * 0.12) * fade;
-        alpha *= mix(1.0, 0.18, uFinalApproach);
+
+        float a = abs(vSide); // 0.0 at center spine, 1.0 at outer boundary
+
+        // 1. Soft feathered watercolor falloff (no hard edges, zero dark ink borders)
+        float lateralAura = 1.0 - smoothstep(0.04, 0.96, a);
+        lateralAura = pow(lateralAura, 1.5);
+
+        // 2. Harmonic sea wind & fluid ripple streamline motion
+        float wave1 = sin(vS * 0.28 - uTime * 3.8 + vSide * 3.4) * 0.5 + 0.5;
+        float wave2 = cos(vS * 0.14 - uTime * 2.1 - vSide * 2.6) * 0.5 + 0.5;
+        float streamFlow = mix(wave1, wave2, 0.5);
+
+        // 3. Floating Luminescent Watercolor Chevrons (轻盈微光导流箭头)
+        float chevronPeriod = 14.0; // 14 meters per chevron
+        float chevronPhase = fract((vS - uTime * 7.2) / chevronPeriod);
+        float chevronV = a * 1.6; // V-shape pointing along travel direction
+        float chevronDist = abs(chevronPhase - chevronV * 0.16 - 0.12);
+        float chevronLine = 1.0 - smoothstep(0.012, 0.056, chevronDist);
+        float chevronMask = 1.0 - smoothstep(0.08, 0.52, a);
+        float chevrons = chevronLine * chevronMask;
+
+        // 4. Watercolor Color Composition (浅海天青羽化渐变 + 纯净微光)
+        vec3 azureAura = mix(uColor, uSkyColor, 0.55);
+        vec3 seaWindCol = mix(azureAura, uFoamColor, streamFlow * 0.32);
+        vec3 col = mix(seaWindCol, uFoamColor, chevrons * 0.75);
+
+        // 5. Translucent Opacity Veil (0.22 ~ 0.26 peak, 80%+ sea transparency)
+        float baseAlpha = lateralAura * (0.07 + streamFlow * 0.07);
+        float chevronAlpha = chevrons * 0.12;
+        float combinedAlpha = clamp(baseAlpha + chevronAlpha, 0.0, 0.24);
+
+        // Fade out on the wooden launch pier (uLapLength - 34 to uLapLength - 16)
+        float pierMask = smoothstep(uLapLength - 34.0, uLapLength - 30.0, vS) * (1.0 - smoothstep(uLapLength - 19.0, uLapLength - 15.0, vS));
+        combinedAlpha *= (1.0 - pierMask);
+
+        float localFade = 1.0 - smoothstep(125.0, 170.0, ahead) * 0.32;
+        float fade = (vDist < 220.0 ? 1.0 : 0.65) * max(localFade, step(0.001, behind) * step(behind, 12.0));
+        float alpha = combinedAlpha * fade * mix(1.0, 0.18, uFinalApproach);
+
         gl_FragColor = vec4(col, alpha);
       }
     `,
@@ -942,6 +1098,514 @@ function buildRibbonMaterial(): THREE.ShaderMaterial {
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+}
+
+// ------------------------------------------------ dynamic 3d airflow guidance & god ray shaders ----
+
+/**
+ * Layer 1: Ambient Flow Aura Ribbon Shader Material.
+ * Ethereal, soft-edged translucent wind mist corridor that wraps the 3D flight trajectory.
+ */
+function buildAuraRibbonMaterial(def: FlightRouteDefinition, runtime: FlightRouteRuntime): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: `AuraRibbon-${def.id}`,
+    uniforms: {
+      uTime: { value: 0 },
+      uWarn: { value: 0 },
+      uReady: { value: 0 },
+      uTurn: { value: 0 },
+      uRecovery: { value: 0 },
+      uRecoveryProgress: { value: runtime.gateFraction },
+      uGateF: { value: runtime.gateFraction },
+      uFlight: { value: new THREE.Color().setHex(PALETTE.flight, THREE.NoColorSpace) },
+      uSkyMid: { value: new THREE.Color().setHex(PALETTE.skyMid, THREE.NoColorSpace) },
+      uFoam: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
+      uSunFlare: { value: new THREE.Color().setHex(PALETTE.sunFlare, THREE.NoColorSpace) },
+      uTurnColor: { value: new THREE.Color().setHex(PALETTE.sunFlare, THREE.NoColorSpace) },
+      uWarnColor: { value: new THREE.Color().setHex(PALETTE.uiWarn, THREE.NoColorSpace) },
+    },
+    vertexShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uRecovery;
+      uniform float uGateF;
+      varying vec2 vUv;
+      varying float vDist;
+      ${WAVES_GLSL}
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        float recoveryTail = uRecovery * step(uGateF - 0.003, uv.y);
+        p.y = mix(p.y, waveHeight(p.xz, uTime) + 0.18, recoveryTail);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        vDist = -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uWarn;
+      uniform float uReady;
+      uniform float uTurn;
+      uniform float uRecovery;
+      uniform float uRecoveryProgress;
+      uniform float uGateF;
+      uniform vec3 uFlight;
+      uniform vec3 uSkyMid;
+      uniform vec3 uFoam;
+      uniform vec3 uSunFlare;
+      uniform vec3 uTurnColor;
+      uniform vec3 uWarnColor;
+      varying vec2 vUv;
+      varying float vDist;
+      void main() {
+        float side = abs(vUv.x - 0.5) * 2.0;
+        float lateralAura = 1.0 - smoothstep(0.04, 0.96, side);
+        lateralAura = pow(lateralAura, 1.5);
+
+        float wave1 = sin(vUv.y * 36.0 - uTime * 4.0 + vUv.x * 3.1415) * 0.5 + 0.5;
+        float wave2 = cos(vUv.y * 18.0 - uTime * 2.0 - vUv.x * 2.2) * 0.5 + 0.5;
+        float windBillow = mix(wave1, wave2, 0.5);
+
+        float pulse = sin(uTime * 4.5 - vUv.y * 10.0) * 0.5 + 0.5;
+        float readyGlow = uReady * pulse * 0.35;
+
+        vec3 softSkyFlight = mix(uFlight, uSkyMid, 0.48);
+        vec3 baseColor = mix(softSkyFlight, uFoam, 0.18 + windBillow * 0.28);
+        baseColor = mix(baseColor, uSunFlare, readyGlow);
+        baseColor = mix(baseColor, uTurnColor, uTurn * 0.5);
+        baseColor = mix(baseColor, uWarnColor, uWarn);
+
+        float alpha = lateralAura * (0.07 + windBillow * 0.05 + readyGlow * 0.08);
+
+        float recoveryTail = uRecovery * step(uGateF - 0.003, vUv.y);
+        alpha *= (1.0 - recoveryTail * 0.85);
+
+        float distFade = smoothstep(3.0, 16.0, vDist);
+        alpha *= distFade;
+
+        gl_FragColor = vec4(baseColor, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+}
+
+/**
+ * Layer 2: Core Airflow Streamline Ribbon Shader Material.
+ * Dynamic water-sky streamlines and soft floating watercolor chevrons, with 80%+ sea visibility.
+ */
+function buildCoreRibbonMaterial(def: FlightRouteDefinition, runtime: FlightRouteRuntime): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: `CoreRibbon-${def.id}`,
+    uniforms: {
+      uTime: { value: 0 },
+      uWarn: { value: 0 },
+      uReady: { value: 0 },
+      uTurn: { value: 0 },
+      uHasTurn: { value: def.navigation?.turn ? 1 : 0 },
+      uTurnFrom: { value: def.navigation?.turn ? flightCurveT(def, def.navigation.turn.fromU) : 0 },
+      uTurnTo: { value: def.navigation?.turn ? flightCurveT(def, def.navigation.turn.toU) : 1 },
+      uRecovery: { value: 0 },
+      uRecoveryProgress: { value: runtime.gateFraction },
+      uGateF: { value: runtime.gateFraction },
+      uFlight: { value: new THREE.Color().setHex(PALETTE.flight, THREE.NoColorSpace) },
+      uSkyMid: { value: new THREE.Color().setHex(PALETTE.skyMid, THREE.NoColorSpace) },
+      uRecoveryColor: { value: new THREE.Color().setHex(PALETTE.racingLine, THREE.NoColorSpace) },
+      uInk: { value: new THREE.Color().setHex(PALETTE.ink, THREE.NoColorSpace) },
+      uFoam: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
+      uTurnColor: { value: new THREE.Color().setHex(PALETTE.sunFlare, THREE.NoColorSpace) },
+      uWarnColor: { value: new THREE.Color().setHex(PALETTE.uiWarn, THREE.NoColorSpace) },
+    },
+    vertexShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uRecovery;
+      uniform float uGateF;
+      varying vec2 vUv;
+      ${WAVES_GLSL}
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        float recoveryTail = uRecovery * step(uGateF - 0.003, uv.y);
+        p.y = mix(p.y, waveHeight(p.xz, uTime) + 0.22, recoveryTail);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uWarn;
+      uniform float uReady;
+      uniform float uTurn;
+      uniform float uHasTurn;
+      uniform float uTurnFrom;
+      uniform float uTurnTo;
+      uniform float uRecovery;
+      uniform float uRecoveryProgress;
+      uniform float uGateF;
+      uniform vec3 uFlight;
+      uniform vec3 uSkyMid;
+      uniform vec3 uRecoveryColor;
+      uniform vec3 uInk;
+      uniform vec3 uFoam;
+      uniform vec3 uTurnColor;
+      uniform vec3 uWarnColor;
+      varying vec2 vUv;
+      void main() {
+        float lateralDist = abs(vUv.x - 0.5) * 2.0;
+        float lateralEnvelope = 1.0 - smoothstep(0.04, 0.96, lateralDist);
+        lateralEnvelope = pow(lateralEnvelope, 1.5);
+
+        // Harmonic dual-wave streamlines
+        float wave = sin(vUv.y * 42.0 - uTime * 4.5) * 0.022;
+        float flowA = 1.0 - smoothstep(0.015, 0.040, abs(vUv.x - (0.42 + wave)));
+        float flowB = 1.0 - smoothstep(0.015, 0.040, abs(vUv.x - (0.58 - wave)));
+        float packetPhase = fract(vUv.y * 11.0 - uTime * 2.1);
+        float packet = smoothstep(0.02, 0.18, packetPhase) * (1.0 - smoothstep(0.55, 0.85, packetPhase));
+        float flow = max(flowA, flowB) * (0.35 + packet * 0.65);
+
+        // Soft Floating Chevrons (微光水彩导流箭头)
+        float chevronPeriod = 0.075;
+        float chevronPhase = fract((vUv.y - uTime * 0.14) / chevronPeriod);
+        float chevronV = abs(vUv.x - 0.5) * 2.0;
+        float chevronDist = abs(chevronPhase - chevronV * 0.22 - 0.10);
+        float chevronLine = 1.0 - smoothstep(0.012, 0.055, chevronDist);
+        float chevronMask = 1.0 - smoothstep(0.08, 0.52, abs(vUv.x - 0.5));
+        float chevrons = chevronLine * chevronMask;
+
+        // Turn zone handling with soft warm amber transition
+        float turnIn = smoothstep(uTurnFrom, min(uTurnFrom + 0.025, uTurnTo), vUv.y);
+        float turnOut = 1.0 - smoothstep(max(uTurnFrom, uTurnTo - 0.025), uTurnTo, vUv.y);
+        float turnZone = uHasTurn * turnIn * turnOut;
+
+        vec3 softFlight = mix(uFlight, uSkyMid, 0.45);
+        vec3 azureAir = mix(softFlight, uFoam, 0.20 + flow * 0.35);
+        vec3 color = mix(azureAir, uTurnColor, min(0.65, turnZone * 0.55 + uTurn * turnZone * 0.25));
+        color = mix(color, uWarnColor, uWarn);
+        color = mix(color, uFoam, chevrons * 0.65);
+
+        float ready = uReady * step(0.5, fract(uTime * 4.0));
+        float alpha = lateralEnvelope * (0.05 + flow * 0.07 + chevrons * 0.07) + ready * 0.04;
+        alpha += turnZone * (0.02 + packet * 0.03);
+        alpha = clamp(alpha, 0.0, 0.16);
+
+        // Recovery funnel phase
+        float recoveryT = smoothstep(uGateF, 1.0, vUv.y);
+        float recoverySide = abs(vUv.x - 0.5);
+        float recoveryHalf = mix(0.48, 0.14, recoveryT);
+        float recoveryCore = 1.0 - smoothstep(recoveryHalf * 0.18, recoveryHalf * 0.5, recoverySide);
+        float recoveryEdge = 1.0 - smoothstep(0.025, 0.055, abs(recoverySide - recoveryHalf));
+        float recoveryDash = step(0.46, fract(vUv.y * 18.0 - uTime * 1.8));
+        float recoveryAlpha = recoveryCore * 0.18 + recoveryEdge * recoveryDash * 0.55;
+        float recoveryVisible = step(max(uGateF - 0.003, uRecoveryProgress - 0.035), vUv.y);
+        vec3 recoveryColor = mix(uInk, uRecoveryColor, 0.82 + recoveryCore * 0.18);
+        color = mix(color, recoveryColor, uRecovery * recoveryVisible);
+        alpha = mix(alpha, recoveryAlpha * recoveryVisible * uRecovery, uRecovery);
+
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+}
+
+/**
+ * Volumetric God Ray (天光光柱) Shader Material.
+ * Towering celestial light shaft descending from clouds to the ancient gate.
+ */
+function buildGodRayMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'GateGodRay',
+    uniforms: {
+      uTime: { value: 0 },
+      uActive: { value: 0 },
+      uDistance: { value: 100 },
+      uSunColor: { value: new THREE.Color().setHex(PALETTE.sun, THREE.NoColorSpace) },
+      uSunFlare: { value: new THREE.Color().setHex(PALETTE.sunFlare, THREE.NoColorSpace) },
+      uSkyColor: { value: new THREE.Color().setHex(PALETTE.flight, THREE.NoColorSpace) },
+      uCoreColor: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main() {
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+        vViewDir = normalize(-mvPos.xyz);
+        gl_Position = projectionMatrix * mvPos;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uActive;
+      uniform float uDistance;
+      uniform vec3 uSunColor;
+      uniform vec3 uSunFlare;
+      uniform vec3 uSkyColor;
+      uniform vec3 uCoreColor;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+
+      void main() {
+        if (uActive < 0.01) discard;
+
+        float vertFade = smoothstep(0.0, 0.16, vUv.y) * (1.0 - smoothstep(0.74, 1.0, vUv.y));
+
+        float viewDot = abs(dot(normalize(vNormal), normalize(vViewDir)));
+        float rim = pow(viewDot, 1.35);
+
+        float beam1 = sin(vUv.x * 16.0 + uTime * 0.55 + vUv.y * 2.2) * 0.5 + 0.5;
+        float beam2 = cos(vUv.x * 26.0 - uTime * 0.95 - vUv.y * 4.2) * 0.5 + 0.5;
+        float beam3 = sin(vUv.x * 38.0 + uTime * 1.3) * 0.5 + 0.5;
+        float sunShafts = mix(beam1, beam2, 0.5) * 0.7 + beam3 * 0.3;
+        sunShafts = pow(sunShafts, 1.5);
+
+        float distScale = smoothstep(18.0, 75.0, uDistance) * 0.72 + 0.28;
+
+        float activePulse = 1.0 + (uActive > 0.6 ? 0.25 * sin(uTime * 3.4) : 0.0);
+        float brightness = uActive * activePulse * distScale;
+
+        vec3 rayColor = mix(uSkyColor, uSunColor, vUv.y * 0.6 + sunShafts * 0.4);
+        rayColor = mix(rayColor, uCoreColor, sunShafts * 0.5 * (uActive > 0.5 ? 1.0 : 0.35));
+        rayColor = mix(rayColor, uSunFlare, (1.0 - vUv.y) * 0.3 * (uActive > 0.5 ? 1.0 : 0.2));
+
+        float alpha = vertFade * rim * (0.10 + sunShafts * 0.42) * brightness;
+        if (alpha < 0.005) discard;
+
+        gl_FragColor = vec4(rayColor, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+}
+
+/**
+ * Gate Passage Resonance Ripple (穿门共鸣冲击波) Shader Material.
+ * Multi-layer expanding chromatic shockwave triggered when glider crosses the gate portal.
+ */
+function buildResonanceRippleMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'GateResonanceRipple',
+    uniforms: {
+      uProgress: { value: 0 },
+      uTime: { value: 0 },
+      uColorCore: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
+      uColorMid: { value: new THREE.Color().setHex(PALETTE.flight, THREE.NoColorSpace) },
+      uColorOuter: { value: new THREE.Color().setHex(PALETTE.sunFlare, THREE.NoColorSpace) },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uProgress;
+      uniform float uTime;
+      uniform vec3 uColorCore;
+      uniform vec3 uColorMid;
+      uniform vec3 uColorOuter;
+      varying vec2 vUv;
+
+      void main() {
+        if (uProgress <= 0.0 || uProgress >= 1.0) discard;
+
+        vec2 centered = (vUv - 0.5) * 2.0;
+        float r = length(centered);
+        if (r > 1.0 || r < 0.02) discard;
+
+        float waveRadius = smoothstep(0.0, 1.0, uProgress);
+        float waveDist = abs(r - waveRadius);
+
+        float waveFront = 1.0 - smoothstep(0.0, 0.14, waveDist);
+
+        float innerRipples = sin((r - waveRadius) * 42.0) * 0.5 + 0.5;
+        innerRipples *= step(r, waveRadius) * (1.0 - smoothstep(0.0, 0.45, waveRadius - r));
+
+        float life = (1.0 - uProgress) * (1.0 - uProgress);
+
+        vec3 col = mix(uColorMid, uColorCore, waveFront * 0.75);
+        col = mix(col, uColorOuter, smoothstep(0.02, 0.12, waveDist) * 0.55);
+
+        float alpha = (waveFront * 0.88 + innerRipples * 0.32) * life;
+        if (alpha < 0.005) discard;
+
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+}
+
+/**
+ * Gate Passage Water Surface Ripple (水面共鸣涟漪) Shader Material.
+ * Expanding circular watercolor waves on the sea surface underneath the gate.
+ */
+function buildResonanceWaterMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'GateResonanceWater',
+    uniforms: {
+      uProgress: { value: 0 },
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color().setHex(PALETTE.seaShallow, THREE.NoColorSpace) },
+      uFoam: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uProgress;
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform vec3 uFoam;
+      varying vec2 vUv;
+
+      void main() {
+        if (uProgress <= 0.0 || uProgress >= 1.0) discard;
+
+        vec2 centered = (vUv - 0.5) * 2.0;
+        float r = length(centered);
+        if (r > 1.0 || r < 0.02) discard;
+
+        float waveRadius = smoothstep(0.0, 1.0, uProgress);
+        float waveDist = abs(r - waveRadius);
+        float ring = 1.0 - smoothstep(0.0, 0.16, waveDist);
+
+        float ripple = sin((r - waveRadius) * 36.0 - uTime * 3.0) * 0.5 + 0.5;
+        ripple *= step(r, waveRadius) * (1.0 - smoothstep(0.0, 0.40, waveRadius - r));
+
+        float life = (1.0 - uProgress) * (1.0 - uProgress);
+        vec3 col = mix(uColor, uFoam, ring * 0.65);
+        float alpha = (ring * 0.7 + ripple * 0.3) * life * 0.8;
+        if (alpha < 0.005) discard;
+
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.NormalBlending,
+    toneMapped: false,
+  });
+}
+
+function makeGodRayGeometry(): THREE.BufferGeometry {
+  const geo = new THREE.CylinderGeometry(4.2, 8.8, 110, 28, 1, true);
+  geo.translate(0, 55, 0);
+  return geo;
+}
+
+function buildBeaconAstrolabeVisuals(
+  passHalfWidth: number,
+  gateHalfHeight: number,
+): {
+  beaconGroup: THREE.Group;
+  beaconRingOuter: THREE.Mesh;
+  beaconRingInner: THREE.Mesh;
+} {
+  const beaconGroup = new THREE.Group();
+  beaconGroup.name = 'beacon-astrolabe';
+  beaconGroup.position.set(0, gateHalfHeight + 2.75, 0.28);
+
+  const dialMat = new THREE.MeshBasicMaterial({
+    color: PALETTE.sunFlare,
+    transparent: true,
+    opacity: 0.82,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+
+  const runeMat = new THREE.MeshBasicMaterial({
+    color: PALETTE.flight,
+    transparent: true,
+    opacity: 0.88,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+
+  const outerRingGeo = new THREE.RingGeometry(passHalfWidth * 0.32, passHalfWidth * 0.36, 32);
+  const beaconRingOuter = new THREE.Mesh(outerRingGeo, dialMat);
+  beaconRingOuter.userData.noOutline = true;
+
+  const notchGeo = new THREE.BoxGeometry(0.08, 0.32, 0.04);
+  const notchMesh = new THREE.InstancedMesh(notchGeo, dialMat, 12);
+  notchMesh.userData.noOutline = true;
+  const m = new THREE.Matrix4();
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3(1, 1, 1);
+  const rOuter = passHalfWidth * 0.34;
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    p.set(Math.cos(angle) * rOuter, Math.sin(angle) * rOuter, 0.01);
+    q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle);
+    m.compose(p, q, s);
+    notchMesh.setMatrixAt(i, m);
+  }
+  notchMesh.instanceMatrix.needsUpdate = true;
+  beaconRingOuter.add(notchMesh);
+
+  const innerRingGeo = new THREE.RingGeometry(passHalfWidth * 0.18, passHalfWidth * 0.22, 24);
+  const beaconRingInner = new THREE.Mesh(innerRingGeo, runeMat);
+  beaconRingInner.userData.noOutline = true;
+
+  const pointerGeo = new THREE.BufferGeometry();
+  pointerGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    0, 0.55, 0,
+    -0.12, 0, 0,
+    0.12, 0, 0,
+  ], 3));
+  pointerGeo.computeVertexNormals();
+  const pointerMesh = new THREE.InstancedMesh(pointerGeo, dialMat, 4);
+  pointerMesh.userData.noOutline = true;
+  const rInner = passHalfWidth * 0.20;
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2;
+    p.set(Math.cos(angle) * rInner, Math.sin(angle) * rInner, 0.02);
+    q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle - Math.PI / 2);
+    m.compose(p, q, s);
+    pointerMesh.setMatrixAt(i, m);
+  }
+  pointerMesh.instanceMatrix.needsUpdate = true;
+  beaconRingInner.add(pointerMesh);
+
+  beaconGroup.add(beaconRingOuter, beaconRingInner);
+  beaconGroup.userData.noOutline = true;
+  beaconGroup.layers.disable(LAYER_INK);
+  beaconGroup.layers.enable(LAYER_ENERGY);
+  beaconRingOuter.layers.disable(LAYER_INK);
+  beaconRingOuter.layers.enable(LAYER_ENERGY);
+  beaconRingInner.layers.disable(LAYER_INK);
+  beaconRingInner.layers.enable(LAYER_ENERGY);
+
+  return {
+    beaconGroup,
+    beaconRingOuter,
+    beaconRingInner,
+  };
 }
 
 // ---------------------------------------------------------------- gates ----
@@ -967,11 +1631,23 @@ interface FlightGate {
   pulse: number;
   anchor: THREE.Mesh;
   cleared: boolean;
+  godRayMesh: THREE.Mesh;
+  godRayMat: THREE.ShaderMaterial;
+  beaconGroup: THREE.Group;
+  beaconRingOuter: THREE.Mesh;
+  beaconRingInner: THREE.Mesh;
+  resonanceMesh: THREE.Mesh;
+  resonanceMat: THREE.ShaderMaterial;
+  resonanceWaterMesh: THREE.Mesh;
+  resonanceWaterMat: THREE.ShaderMaterial;
+  resonanceTimer: number;
 }
 
 interface FlightRouteVisual {
   runtime: FlightRouteRuntime;
   group: THREE.Group;
+  auraRibbonMesh: THREE.Mesh;
+  auraRibbon: THREE.ShaderMaterial;
   ribbonMesh: THREE.Mesh;
   ribbon: THREE.ShaderMaterial;
   rail: THREE.MeshBasicMaterial;
@@ -1168,6 +1844,228 @@ function makePrayerFlagMaterial(): THREE.ShaderMaterial {
       }
     `,
     side: THREE.DoubleSide,
+  });
+}
+
+// --------------------------------------------------- thermal & wind shaders ----
+
+export interface ThermalUpdraftVisual {
+  def: ThermalUpdraftDef;
+  group: THREE.Group;
+  material: THREE.ShaderMaterial;
+  baseDiscMat: THREE.ShaderMaterial;
+  baseDisc: THREE.Mesh;
+  particles: THREE.InstancedMesh;
+}
+
+export interface WindRingVisual {
+  def: WindRingDef;
+  group: THREE.Group;
+  outerRing: THREE.Mesh;
+  innerGlow: THREE.Mesh;
+  winglets: THREE.Group;
+  apertureMat: THREE.ShaderMaterial;
+  aperture: THREE.Mesh;
+  pulse: number;
+}
+
+export interface WindTunnelVisual {
+  def: WindTunnelDef;
+  group: THREE.Group;
+  ringVisuals: WindRingVisual[];
+  guideRibbons: THREE.Mesh[];
+  guideMat?: THREE.ShaderMaterial;
+}
+
+function makeThermalUpdraftMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'ThermalUpdraftToon',
+    uniforms: {
+      uTime: { value: 0 },
+      uColorCore: { value: new THREE.Color(PALETTE.sun) },
+      uColorOuter: { value: new THREE.Color(PALETTE.foam) },
+      uColorSky: { value: new THREE.Color(PALETTE.skyHorizon) },
+      uColorInk: { value: new THREE.Color(PALETTE.ink) },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.NormalBlending,
+    vertexShader: /* glsl */ `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vPos;
+
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+
+        // Gentle organic radial airflow breathing and spiral wobble
+        float breathe = sin(uTime * 2.4 + p.y * 0.35) * 0.04;
+        float wobbleX = sin(uTime * 1.6 + p.y * 0.18) * 0.32;
+        float wobbleZ = cos(uTime * 1.3 + p.y * 0.18) * 0.32;
+
+        p.x = (p.x + wobbleX) * (1.0 + breathe);
+        p.z = (p.z + wobbleZ) * (1.0 + breathe);
+
+        vPos = p;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uColorCore;
+      uniform vec3 uColorOuter;
+      uniform vec3 uColorSky;
+      uniform vec3 uColorInk;
+      varying vec2 vUv;
+      varying vec3 vPos;
+
+      void main() {
+        float h = vUv.y;
+
+        // Multi-frequency spiral streamlines ascending up the thermal chimney
+        float spiral1 = sin(vUv.x * 12.566 + vUv.y * 7.5 - uTime * 4.2);
+        float spiral2 = cos(vUv.x * 18.849 - vUv.y * 11.0 - uTime * 6.5);
+        float spiral3 = sin(vUv.x * 6.283 + vUv.y * 3.2 - uTime * 2.1);
+        float stream = spiral1 * 0.42 + spiral2 * 0.34 + spiral3 * 0.24;
+
+        // Soft envelope: smooth fade-in from sea level, wide peak at center, soft fade-out at ceiling
+        float vFade = smoothstep(0.0, 0.14, h) * (1.0 - smoothstep(0.72, 1.0, h));
+
+        // Streamline crispness (Ghibli cel-wind look)
+        float wisp = smoothstep(0.12, 0.88, stream * 0.5 + 0.5);
+
+        // Color gradient: warm golden sunlight core blending into celestial turquoise air
+        vec3 col = mix(uColorOuter, uColorCore, clamp(stream * 0.6 + 0.4, 0.0, 1.0));
+
+        // Final alpha with soft watercolor translucency
+        float alpha = (0.07 + wisp * 0.24) * vFade;
+
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+  });
+}
+
+function makeThermalSurfaceSwirlMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'ThermalSurfaceSwirl',
+    uniforms: {
+      uTime: { value: 0 },
+      uColorCore: { value: new THREE.Color(PALETTE.sun) },
+      uColorFizz: { value: new THREE.Color(PALETTE.foam) },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uColorCore;
+      uniform vec3 uColorFizz;
+      varying vec2 vUv;
+
+      void main() {
+        vec2 p = vUv * 2.0 - 1.0;
+        float r = length(p);
+        if (r > 1.0) discard;
+
+        float theta = atan(p.y, p.x);
+        float spiral = sin(theta * 3.0 - r * 14.0 + uTime * 2.8);
+        float ring = smoothstep(0.15, 0.55, r) * (1.0 - smoothstep(0.85, 1.0, r));
+        float alpha = ring * (0.15 + 0.35 * smoothstep(-0.2, 0.8, spiral));
+
+        vec3 col = mix(uColorFizz, uColorCore, clamp(spiral * 0.5 + 0.5, 0.0, 1.0));
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+  });
+}
+
+function makeWindRingApertureMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'WindRingAperture',
+    uniforms: {
+      uTime: { value: 0 },
+      uPulse: { value: 0 },
+      uColorFlight: { value: new THREE.Color(PALETTE.flight) },
+      uColorSun: { value: new THREE.Color(PALETTE.sun) },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uPulse;
+      uniform vec3 uColorFlight;
+      uniform vec3 uColorSun;
+      varying vec2 vUv;
+
+      void main() {
+        vec2 p = vUv * 2.0 - 1.0;
+        float r = length(p);
+        if (r > 1.0) discard;
+
+        float theta = atan(p.y, p.x);
+        float vortex = sin(theta * 4.0 - r * 8.0 + uTime * 6.5);
+        float rim = smoothstep(0.4, 0.95, r);
+        float alpha = rim * (0.18 + uPulse * 0.45 + vortex * 0.12);
+
+        vec3 col = mix(uColorFlight, uColorSun, clamp(vortex * 0.5 + 0.5 + uPulse * 0.5, 0.0, 1.0));
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+  });
+}
+
+function makeWindTunnelGuideMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    name: 'WindTunnelGuide',
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(PALETTE.flight) },
+      uColorSun: { value: new THREE.Color(PALETTE.sun) },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform vec3 uColorSun;
+      varying vec2 vUv;
+
+      void main() {
+        float wave = sin(vUv.x * 20.0 - uTime * 8.0);
+        float packet = fract(vUv.x * 4.0 - uTime * 2.2);
+        float dash = smoothstep(0.1, 0.4, packet) * (1.0 - smoothstep(0.6, 0.9, packet));
+        float edge = smoothstep(0.0, 0.15, vUv.y) * (1.0 - smoothstep(0.85, 1.0, vUv.y));
+        float alpha = edge * (0.14 + dash * 0.32);
+        vec3 col = mix(uColor, uColorSun, dash * 0.6);
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
   });
 }
 
@@ -1973,6 +2871,8 @@ export class Course implements ICourse {
   readonly length = LAP_LENGTH;
   readonly checkpoints = CHECKPOINT_US.length;
   readonly flightRoutes = FLIGHT_ROUTES;
+  readonly thermalUpdrafts = THERMAL_UPDRAFTS;
+  readonly windTunnels = WIND_TUNNELS;
   readonly flightEntryU = FLIGHT_ENTRY_U;
   readonly flightExitU = FLIGHT_EXIT_U;
   readonly flightGateUs = FLIGHT_GATE_US;
@@ -1981,6 +2881,8 @@ export class Course implements ICourse {
   private readonly stripMat: THREE.ShaderMaterial;
   private readonly prayerFlagMat: THREE.ShaderMaterial;
   private readonly flightVisuals: FlightRouteVisual[];
+  private readonly thermalUpdraftVisuals: ThermalUpdraftVisual[] = [];
+  private readonly windTunnelVisuals: WindTunnelVisual[] = [];
   private readonly surfaceActionVisual: SurfaceActionVisual;
   private readonly floaters: Floater[] = [];
   private readonly windChimes: WindChimeNode[] = [];
@@ -2020,6 +2922,34 @@ export class Course implements ICourse {
   private finalArmed = false;
   private finalCelebrating = false;
   private finalCelebrationTime = 0;
+  private readonly sceneryWindmillRotors: THREE.Object3D[] = [];
+  private readonly scenerySeagulls: {
+    group: THREE.Group;
+    wingLeft: THREE.Object3D;
+    wingRight: THREE.Object3D;
+    baseX: number;
+    baseY: number;
+    baseZ: number;
+    radius: number;
+    speed: number;
+    phase: number;
+    flapFreq: number;
+    verticalAmp: number;
+  }[] = [];
+  private readonly sceneryLeapingCreatures: {
+    group: THREE.Group;
+    splashRing: THREE.Mesh;
+    startX: number;
+    startZ: number;
+    endX: number;
+    endZ: number;
+    peakY: number;
+    period: number;
+    phase: number;
+  }[] = [];
+  private scenerySporesPoints: THREE.Points | null = null;
+  private scenerySporesPositions: Float32Array | null = null;
+  private scenerySporesBase: Float32Array | null = null;
   private readonly finalPortalCenter = new THREE.Vector3();
   private readonly finalPortalForward = new THREE.Vector3();
   private readonly finalPortalRight = new THREE.Vector3();
@@ -2032,6 +2962,9 @@ export class Course implements ICourse {
     this.stripMat = this.buildStartStrip();
     this.flightVisuals = FLIGHT_RUNTIME.map((runtime) => this.buildFlightRoute(runtime));
     this.buildGates();
+    this.buildThermalUpdrafts();
+    this.buildWindTunnels();
+    this.buildWonderCourseScenery();
     this.surfaceActionVisual = this.buildSurfaceActionVisual();
     this.pointAt(0, this.finalPortalCenter);
     this.tangentAt(0, this.finalPortalForward);
@@ -2143,6 +3076,130 @@ export class Course implements ICourse {
     return out;
   }
 
+  sampleThermalUpdraft(pos: THREE.Vector3, out: ThermalSample = _thermalSample): ThermalSample | null {
+    let bestIntensity = 0;
+    let bestLift = 0;
+    let bestCx = 0;
+    let bestCz = 0;
+
+    for (let i = 0; i < THERMAL_UPDRAFTS.length; i++) {
+      const u = THERMAL_UPDRAFTS[i];
+      const dx = pos.x - u.x;
+      const dz = pos.z - u.z;
+      const d2 = dx * dx + dz * dz;
+      const r2 = u.radius * u.radius;
+      if (d2 > r2) continue;
+
+      const relY = pos.y - u.baseY;
+      if (relY < -2.0 || relY > u.height + 4.0) continue;
+
+      const normDist = Math.sqrt(d2) / u.radius;
+      const radF = 1.0 - normDist * normDist;
+
+      let hF = 1.0;
+      if (relY < 0.5) hF = THREE.MathUtils.clamp((relY + 2.0) / 2.5, 0.2, 1.0);
+      else if (relY > u.height) hF = THREE.MathUtils.clamp(1.0 - (relY - u.height) / 4.0, 0.0, 1.0);
+
+      const intensity = radF * hF;
+      if (intensity > bestIntensity) {
+        bestIntensity = intensity;
+        bestLift = u.liftSpeed;
+        bestCx = u.x;
+        bestCz = u.z;
+      }
+    }
+
+    if (bestIntensity <= 0.01) return null;
+    out.intensity = bestIntensity;
+    out.liftSpeed = bestLift;
+    out.centerX = bestCx;
+    out.centerZ = bestCz;
+    return out;
+  }
+
+  sampleWindTunnel(pos: THREE.Vector3, prevPos: THREE.Vector3, out: WindTunnelSample = _windTunnelSample): WindTunnelSample | null {
+    let insideFactor = 0;
+    let maxBoost = 0;
+    let bestDirX = 0;
+    let bestDirY = 0;
+    let bestDirZ = 1;
+    let passedRing = false;
+
+    for (let tIdx = 0; tIdx < WIND_TUNNELS.length; tIdx++) {
+      const tunnel = WIND_TUNNELS[tIdx];
+      const visual = this.windTunnelVisuals[tIdx];
+
+      for (let rIdx = 0; rIdx < tunnel.rings.length; rIdx++) {
+        const ring = tunnel.rings[rIdx];
+        const d0 = (prevPos.x - ring.x) * ring.dirX + (prevPos.y - ring.y) * ring.dirY + (prevPos.z - ring.z) * ring.dirZ;
+        const d1 = (pos.x - ring.x) * ring.dirX + (pos.y - ring.y) * ring.dirY + (pos.z - ring.z) * ring.dirZ;
+
+        if (d0 <= 0 && d1 > 0) {
+          const denom = d0 - d1;
+          const f = Math.abs(denom) > 1e-5 ? d0 / denom : 0.5;
+          const ix = prevPos.x + (pos.x - prevPos.x) * f;
+          const iy = prevPos.y + (pos.y - prevPos.y) * f;
+          const iz = prevPos.z + (pos.z - prevPos.z) * f;
+
+          const distSq = (ix - ring.x) ** 2 + (iy - ring.y) ** 2 + (iz - ring.z) ** 2;
+          if (distSq <= ring.radius * ring.radius * 1.15) {
+            passedRing = true;
+            insideFactor = 1.0;
+            maxBoost = Math.max(maxBoost, tunnel.boostStrength);
+            bestDirX = ring.dirX;
+            bestDirY = ring.dirY;
+            bestDirZ = ring.dirZ;
+            if (visual && visual.ringVisuals[rIdx]) {
+              visual.ringVisuals[rIdx].pulse = 1.0;
+            }
+          }
+        }
+      }
+
+      for (let rIdx = 0; rIdx < tunnel.rings.length - 1; rIdx++) {
+        const r0 = tunnel.rings[rIdx];
+        const r1 = tunnel.rings[rIdx + 1];
+        const segX = r1.x - r0.x;
+        const segY = r1.y - r0.y;
+        const segZ = r1.z - r0.z;
+        const segLenSq = segX * segX + segY * segY + segZ * segZ;
+        if (segLenSq < 1e-4) continue;
+
+        const toPosX = pos.x - r0.x;
+        const toPosY = pos.y - r0.y;
+        const toPosZ = pos.z - r0.z;
+
+        const proj = THREE.MathUtils.clamp((toPosX * segX + toPosY * segY + toPosZ * segZ) / segLenSq, 0, 1);
+        const closeX = r0.x + segX * proj;
+        const closeY = r0.y + segY * proj;
+        const closeZ = r0.z + segZ * proj;
+
+        const dSq = (pos.x - closeX) ** 2 + (pos.y - closeY) ** 2 + (pos.z - closeZ) ** 2;
+        const maxR = Math.max(r0.radius, r1.radius);
+        if (dSq <= maxR * maxR) {
+          const factor = 1.0 - Math.sqrt(dSq) / maxR;
+          if (factor > insideFactor) {
+            insideFactor = factor;
+            maxBoost = Math.max(maxBoost, tunnel.boostStrength);
+            const segLen = Math.sqrt(segLenSq);
+            bestDirX = segX / segLen;
+            bestDirY = segY / segLen;
+            bestDirZ = segZ / segLen;
+          }
+        }
+      }
+    }
+
+    if (insideFactor <= 0.02 && !passedRing) return null;
+    out.inside = insideFactor;
+    out.boost = maxBoost;
+    out.dirX = bestDirX;
+    out.dirY = bestDirY;
+    out.dirZ = bestDirZ;
+    out.ringPassed = passedRing;
+    return out;
+  }
+
   routeForBoat(id: number): CourseRouteId {
     const index = this.flightLatched[id] ?? -1;
     return index >= 0 ? FLIGHT_ROUTES[index].id : 'surface';
@@ -2202,6 +3259,9 @@ export class Course implements ICourse {
         gate.cleared = false;
         gate.group.visible = true;
         gate.anchor.visible = true;
+        gate.resonanceTimer = 0;
+        gate.resonanceMesh.visible = false;
+        gate.resonanceWaterMesh.visible = false;
       }
     }
     for (const floater of this.floaters) floater.obj.visible = true;
@@ -2485,9 +3545,22 @@ export class Course implements ICourse {
         continue;
       }
 
-      const insideAttemptSpan = surfaceU >= def.entryU - FLIGHT_ATTEMPT_EARLY_U && surfaceU <= def.exitU + 0.006;
-      const crossedChallengeEntry = surfaceU >= def.entryU - 0.001;
-      if (flightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
+      const insideAttemptSpan = surfaceU >= def.entryU - FLIGHT_ATTEMPT_EARLY_U && surfaceU <= def.exitU + 0.008;
+      const crossedChallengeEntry = surfaceU >= def.entryU - 0.002;
+      // Wind-stream updraft auto-launch for player so missing the Spacebar window never kills the flow
+      if (id === 0 && !flightActive && st.flightRouteState === 'idle' &&
+          surfaceU >= def.launchFromU && surfaceU <= def.entryU + 0.014 &&
+          _routeSample.distance <= 24) {
+        st.flightClearance = Math.max(st.flightClearance, 0.35);
+        boat.beginFlightRouteAttempt(routeIndex, st.flightRouteCursor, def.targetSpeed);
+        this.flightDebug[id] = 'active';
+        this.flightLatched[id] = routeIndex;
+        this.flightOffCorridorT[id] = 0;
+        this.flightOffCorridorD[id] = 0;
+      }
+
+      const nowFlightActive = st.flightPhase !== 'surface';
+      if (nowFlightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
           (near.distance <= def.corridorHalfWidth || crossedChallengeEntry)) {
         boat.beginFlightRouteAttempt(routeIndex, st.flightRouteCursor, def.targetSpeed);
         this.flightDebug[id] = 'active';
@@ -2499,7 +3572,7 @@ export class Course implements ICourse {
         }
       }
 
-      if (!flightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
+      if (!nowFlightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
           _routeSample.distance < SURFACE_ROUTE_FAIL_DISTANCE_M &&
           surfaceU >= def.gateUs[0] - FLIGHT_GATE_BYPASS_U) {
         boat.beginFlightRouteAttempt(routeIndex, st.flightRouteCursor, def.targetSpeed);
@@ -2511,7 +3584,7 @@ export class Course implements ICourse {
         this.flightLatched[id] = routeIndex;
         const gateIndex = st.flightGateProgress;
         const gate = visual.gates[gateIndex];
-        if (gate && flightActive) {
+        if (gate && nowFlightActive) {
           const d0 = (prev.x - gate.center.x) * gate.normal.x + (prev.z - gate.center.z) * gate.normal.z;
           const d1 = (pos.x - gate.center.x) * gate.normal.x + (pos.z - gate.center.z) * gate.normal.z;
           if (d0 <= 0 && d1 > 0) {
@@ -2522,16 +3595,19 @@ export class Course implements ICourse {
             const crossingClearance = previousClearance + (st.flightClearance - previousClearance) * f;
             const lateral = (ix - gate.center.x) * gate.right.x + (iz - gate.center.z) * gate.right.z;
             const lateralLimit = def.passHalfWidth;
-            const certifiedPhase = st.flightPhase === 'ascending' || st.flightPhase === 'cruise';
-            if (!certifiedPhase || crossingClearance < 2.8) {
+            const certifiedPhase = st.flightPhase !== 'surface';
+            if (!certifiedPhase || crossingClearance < 0.8) {
               this.flightDebug[id] = `late-height:f${routeIndex + 1}:y${crossingClearance.toFixed(2)}`;
               this.failFlight(boat, visual, 'late', gate.u, gateIndex + 1, lateral, lateralLimit);
             } else if (Math.abs(lateral) <= lateralLimit) {
               boat.applyFlightGatePass(gateIndex);
               if (id === 0) {
-                gate.pulse = 0.36;
+                gate.pulse = 0.45;
                 gate.cleared = true;
                 gate.anchor.visible = false;
+                gate.resonanceTimer = 0.001;
+                gate.resonanceMesh.visible = true;
+                gate.resonanceWaterMesh.visible = true;
               }
               if (gateIndex + 1 >= visual.gates.length) {
                 boat.completeFlightRoute(routeIndex, st.flightRouteCursor);
@@ -2568,7 +3644,7 @@ export class Course implements ICourse {
       }
 
       if (st.flightRouteState === 'active') {
-        if (!flightActive || st.flightPhase === 'descending') {
+        if (!nowFlightActive) {
           this.flightDebug[id] = `landing:g${st.flightGateProgress}`;
           this.failFlight(boat, visual, 'landing', near.u, null);
         } else {
@@ -2684,6 +3760,9 @@ export class Course implements ICourse {
             gate.cleared = false;
             gate.group.visible = true;
             gate.anchor.visible = true;
+            gate.resonanceTimer = 0;
+            gate.resonanceMesh.visible = false;
+            gate.resonanceWaterMesh.visible = false;
           }
         }
       }
@@ -2728,6 +3807,11 @@ export class Course implements ICourse {
         if (object.userData.isAnemometer) {
           object.rotation.y = t * (this.finalCelebrating ? 10.5 : 5.8);
         }
+        if (object.userData.isPennant) {
+          const pIndex = Number(object.userData.pennantIndex ?? 0);
+          object.rotation.y = Math.sin(t * 3.5 + pIndex * 0.45) * 0.35;
+          object.rotation.z = Math.cos(t * 2.8 + pIndex * 0.6) * 0.15;
+        }
         if (!(object instanceof THREE.Mesh)) return;
         const material = object.material as THREE.MeshBasicMaterial;
         const baseOpacity = Number(object.userData.finalBaseOpacity ?? 0);
@@ -2755,11 +3839,22 @@ export class Course implements ICourse {
       if (visual.deployActive) visual.deployTime += dt;
       const warn = this.flightWarnRoute === routeIndex ? Math.min(1, this.flightWarn * 4) : 0;
       const upcoming = routeIndex === this.playerFlightIndex;
+      // Update Layer 1: Aura Ribbon
+      visual.auraRibbon.uniforms.uTime.value = this.flightFlowTime;
+      visual.auraRibbon.uniforms.uWarn.value = warn;
+      visual.auraRibbon.uniforms.uReady.value = upcoming && this.playerFlightReady ? 1 : 0;
+      visual.auraRibbon.uniforms.uTurn.value = upcoming && this.flightTurnWarn[0] ? 1 : 0;
+      const recovery = this.playerRecoveryRoute === routeIndex ? 1 : visual.recoveryFade > 0 ? visual.recoveryFade / 0.3 : 0;
+      visual.auraRibbon.uniforms.uRecovery.value = recovery;
+      visual.auraRibbon.uniforms.uRecoveryProgress.value = visual.recoveryProgress;
+      if (recovery > 0) visual.auraRibbonMesh.layers.disable(LAYER_ENERGY);
+      else visual.auraRibbonMesh.layers.enable(LAYER_ENERGY);
+
+      // Update Layer 2: Core Ribbon
       visual.ribbon.uniforms.uTime.value = this.flightFlowTime;
       visual.ribbon.uniforms.uWarn.value = warn;
       visual.ribbon.uniforms.uReady.value = upcoming && this.playerFlightReady ? 1 : 0;
       visual.ribbon.uniforms.uTurn.value = upcoming && this.flightTurnWarn[0] ? 1 : 0;
-      const recovery = this.playerRecoveryRoute === routeIndex ? 1 : visual.recoveryFade > 0 ? visual.recoveryFade / 0.3 : 0;
       visual.ribbon.uniforms.uRecovery.value = recovery;
       visual.ribbon.uniforms.uRecoveryProgress.value = visual.recoveryProgress;
       if (recovery > 0) visual.ribbonMesh.layers.disable(LAYER_ENERGY);
@@ -2794,7 +3889,7 @@ export class Course implements ICourse {
         gate.pulse = Math.max(0, gate.pulse - dt);
         const p = gate.pulse / 0.36;
         gate.group.scale.setScalar(1 + p * 0.1);
-        gate.group.visible = !gate.cleared || gate.pulse > 0.06;
+
         const distance = upcoming ? gate.center.distanceTo(this.playerPosition) : 0;
         const far = Math.max(0, Math.min(1, (distance - 70) / 150));
         const smoothFar = far * far * (3 - 2 * far);
@@ -2804,6 +3899,48 @@ export class Course implements ICourse {
         gate.anchor.rotation.z = this.flightFlowTime * 0.18;
         (gate.anchor.material as THREE.MeshBasicMaterial).opacity =
           0.68 + Math.sin(this.flightFlowTime * 3.4) * 0.12;
+
+        // Volumetric God Ray (天光光柱) update
+        const isTargetGate = upcoming && !gate.cleared;
+        gate.godRayMat.uniforms.uTime.value = t;
+        gate.godRayMat.uniforms.uActive.value = isTargetGate ? 1.0 : (!gate.cleared ? 0.35 : 0.0);
+        gate.godRayMat.uniforms.uDistance.value = distance;
+
+        // Astrolabe Landmark Beacon update
+        gate.beaconRingOuter.rotation.z = t * 0.28;
+        gate.beaconRingInner.rotation.z = -t * 0.45;
+        const beaconScale = 1.0 + (isTargetGate ? smoothFar * 0.65 : 0.0);
+        gate.beaconGroup.scale.setScalar(beaconScale);
+        gate.beaconGroup.visible = !gate.cleared;
+
+        // Gate Passage Resonance Ripple (3D shockwave & water ripple) update
+        if (gate.resonanceTimer > 0) {
+          gate.resonanceTimer += dt;
+          if (gate.resonanceTimer >= 0.85) {
+            gate.resonanceTimer = 0;
+            gate.resonanceMesh.visible = false;
+            gate.resonanceWaterMesh.visible = false;
+          } else {
+            const prog = gate.resonanceTimer / 0.85;
+            gate.resonanceMesh.visible = true;
+            gate.resonanceMat.uniforms.uProgress.value = prog;
+            gate.resonanceMat.uniforms.uTime.value = t;
+            const s = (gate.halfWidth * 2.5) * Math.pow(prog, 0.42);
+            gate.resonanceMesh.scale.set(s, s, s);
+
+            gate.resonanceWaterMesh.visible = true;
+            gate.resonanceWaterMesh.position.y = surface - gate.center.y + 0.15;
+            gate.resonanceWaterMat.uniforms.uProgress.value = prog;
+            gate.resonanceWaterMat.uniforms.uTime.value = t;
+            const sw = (gate.halfWidth * 3.5) * Math.pow(prog, 0.48);
+            gate.resonanceWaterMesh.scale.set(sw, 1, sw);
+          }
+        } else {
+          gate.resonanceMesh.visible = false;
+          gate.resonanceWaterMesh.visible = false;
+        }
+
+        gate.group.visible = !gate.cleared || gate.pulse > 0.06 || gate.resonanceTimer > 0;
       }
     }
     for (const f of this.floaters) {
@@ -2827,6 +3964,109 @@ export class Course implements ICourse {
       chime.catcher.rotation.x = cx;
       chime.catcher.rotation.z = cz;
     }
+
+    // Update thermal updrafts
+    for (let i = 0; i < this.thermalUpdraftVisuals.length; i++) {
+      const visual = this.thermalUpdraftVisuals[i];
+      visual.material.uniforms.uTime.value = t;
+      visual.baseDiscMat.uniforms.uTime.value = t;
+      visual.baseDisc.rotation.z = t * 0.75;
+      for (let p = 0; p < 10; p++) {
+        const pPhase = ((t * (0.06 + p * 0.008) + p * 0.1) % 1.0 + 1.0) % 1.0;
+        const pY = pPhase * visual.def.height;
+        const pAngle = pPhase * Math.PI * 5.5 + p * 1.6;
+        const pRad = (visual.def.coreRadius + Math.sin(pAngle * 2.0) * 1.5) * (0.8 + 0.3 * (pY / visual.def.height));
+        const px = Math.cos(pAngle) * pRad;
+        const pz = Math.sin(pAngle) * pRad;
+        const scale = Math.sin(pPhase * Math.PI) * 0.6 + 0.2;
+        _particlePos.set(px, pY, pz);
+        _particleScale.set(scale, scale, scale);
+        _particleMat.compose(_particlePos, _particleQ, _particleScale);
+        visual.particles.setMatrixAt(p, _particleMat);
+      }
+      visual.particles.instanceMatrix.needsUpdate = true;
+    }
+
+    // Update wind tunnels & rings
+    for (let i = 0; i < this.windTunnelVisuals.length; i++) {
+      const tunnel = this.windTunnelVisuals[i];
+      if (tunnel.guideMat) tunnel.guideMat.uniforms.uTime.value = t;
+      for (let r = 0; r < tunnel.ringVisuals.length; r++) {
+        const ring = tunnel.ringVisuals[r];
+        ring.pulse = Math.max(0, ring.pulse - dt * 3.5);
+        const s = 1.0 + ring.pulse * 0.24;
+        ring.group.scale.set(s, s, s);
+        ring.winglets.rotation.z = t * 3.6;
+        ring.apertureMat.uniforms.uTime.value = t;
+        ring.apertureMat.uniforms.uPulse.value = ring.pulse;
+      }
+    }
+
+    // Update wonder scenery windmill rotors
+    for (let i = 0; i < this.sceneryWindmillRotors.length; i++) {
+      this.sceneryWindmillRotors[i].rotation.z = t * 1.8;
+    }
+
+    // Update wonder scenery seagulls (flapping, banking, circling over haven)
+    for (let i = 0; i < this.scenerySeagulls.length; i++) {
+      const g = this.scenerySeagulls[i];
+      const angle = t * g.speed + g.phase;
+      const x = g.baseX + Math.cos(angle) * g.radius;
+      const z = g.baseZ + Math.sin(angle) * g.radius;
+      const y = g.baseY + Math.sin(t * 1.4 + g.phase) * g.verticalAmp;
+      g.group.position.set(x, y, z);
+      g.group.rotation.y = -angle + Math.PI / 2;
+      g.group.rotation.z = -0.22;
+      const wingFlap = Math.sin(t * g.flapFreq + g.phase) * 0.48;
+      g.wingLeft.rotation.z = wingFlap;
+      g.wingRight.rotation.z = -wingFlap;
+    }
+
+    // Update wonder scenery leaping dolphins & flying fish
+    for (let i = 0; i < this.sceneryLeapingCreatures.length; i++) {
+      const c = this.sceneryLeapingCreatures[i];
+      const cycle = ((t / c.period + c.phase) % 1.0 + 1.0) % 1.0;
+      if (cycle < 0.45) {
+        c.group.visible = false;
+        c.splashRing.visible = false;
+      } else {
+        const tau = (cycle - 0.45) / 0.55;
+        const x = c.startX + (c.endX - c.startX) * tau;
+        const z = c.startZ + (c.endZ - c.startZ) * tau;
+        const y = Math.sin(tau * Math.PI) * c.peakY;
+        c.group.position.set(x, y, z);
+        const yaw = Math.atan2(c.endX - c.startX, c.endZ - c.startZ);
+        const pitch = Math.atan2(Math.cos(tau * Math.PI) * c.peakY * 2.8, Math.hypot(c.endX - c.startX, c.endZ - c.startZ));
+        c.group.rotation.set(pitch, yaw, 0, 'YXZ');
+        c.group.visible = true;
+
+        if (tau < 0.18 || tau > 0.82) {
+          const isEntry = tau < 0.18;
+          const sTau = isEntry ? tau / 0.18 : (1.0 - tau) / 0.18;
+          c.splashRing.position.set(isEntry ? c.startX : c.endX, 0.05, isEntry ? c.startZ : c.endZ);
+          const rScale = 0.5 + sTau * 1.8;
+          c.splashRing.scale.set(rScale, rScale, rScale);
+          (c.splashRing.material as THREE.MeshBasicMaterial).opacity = (1.0 - sTau) * 0.75;
+          c.splashRing.visible = true;
+        } else {
+          c.splashRing.visible = false;
+        }
+      }
+    }
+
+    // Update wonder scenery dandelion spores & grass clippings
+    if (this.scenerySporesPoints && this.scenerySporesPositions && this.scenerySporesBase) {
+      const pos = this.scenerySporesPositions;
+      const base = this.scenerySporesBase;
+      const count = pos.length / 3;
+      for (let i = 0; i < count; i++) {
+        const o = i * 3;
+        pos[o] = base[o] + Math.sin(t * 1.2 + i * 0.4) * 2.2;
+        pos[o + 1] = base[o + 1] + Math.cos(t * 0.9 + i * 0.7) * 0.8;
+        pos[o + 2] = base[o + 2] + Math.sin(t * 0.7 + i * 0.3) * 1.8;
+      }
+      (this.scenerySporesPoints.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    }
   }
 
   // ------------------------------------------------------- flight route ----
@@ -2839,7 +4079,9 @@ export class Course implements ICourse {
     this.object.add(routeGroup);
     const SEG = Math.max(64, Math.ceil(runtime.routeLength / 1.8));
     const HALF_W = def.corridorHalfWidth;
+    const HALF_W_AURA = HALF_W * 1.35;
     const pos = new Float32Array((SEG + 1) * 2 * 3);
+    const posAura = new Float32Array((SEG + 1) * 2 * 3);
     const uv = new Float32Array((SEG + 1) * 2 * 2);
     const idx = new Uint16Array(SEG * 6);
     const p = new THREE.Vector3();
@@ -2853,12 +4095,22 @@ export class Course implements ICourse {
       const rx = t.z;
       const rz = -t.x;
       const o = i * 6;
+      // Core ribbon (elevation +0.07)
       pos[o] = p.x + rx * HALF_W;
-      pos[o + 1] = p.y + 0.05;
+      pos[o + 1] = p.y + 0.07;
       pos[o + 2] = p.z + rz * HALF_W;
       pos[o + 3] = p.x - rx * HALF_W;
-      pos[o + 4] = p.y + 0.05;
+      pos[o + 4] = p.y + 0.07;
       pos[o + 5] = p.z - rz * HALF_W;
+
+      // Aura ribbon (elevation +0.02, wider)
+      posAura[o] = p.x + rx * HALF_W_AURA;
+      posAura[o + 1] = p.y + 0.02;
+      posAura[o + 2] = p.z + rz * HALF_W_AURA;
+      posAura[o + 3] = p.x - rx * HALF_W_AURA;
+      posAura[o + 4] = p.y + 0.02;
+      posAura[o + 5] = p.z - rz * HALF_W_AURA;
+
       const q = i * 4;
       uv[q] = 0;
       uv[q + 1] = f;
@@ -2876,102 +4128,26 @@ export class Course implements ICourse {
       }
     }
 
+    // Layer 1: Ambient Flow Aura Ribbon
+    const auraRibbonGeo = new THREE.BufferGeometry();
+    auraRibbonGeo.setAttribute('position', new THREE.BufferAttribute(posAura, 3));
+    auraRibbonGeo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    auraRibbonGeo.setIndex(new THREE.BufferAttribute(idx, 1));
+    const auraRibbonMat = buildAuraRibbonMaterial(def, runtime);
+    const auraRibbonMesh = new THREE.Mesh(auraRibbonGeo, auraRibbonMat);
+    auraRibbonMesh.name = `${def.id}-aura-ribbon`;
+    auraRibbonMesh.renderOrder = 2;
+    auraRibbonMesh.userData.noOutline = true;
+    auraRibbonMesh.layers.disable(LAYER_INK);
+    auraRibbonMesh.layers.enable(LAYER_ENERGY);
+    routeGroup.add(auraRibbonMesh);
+
+    // Layer 2: Core Airflow Streamline Ribbon
     const ribbonGeo = new THREE.BufferGeometry();
     ribbonGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     ribbonGeo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     ribbonGeo.setIndex(new THREE.BufferAttribute(idx, 1));
-    const ribbonMat = new THREE.ShaderMaterial({
-      name: 'FlightRoute',
-      uniforms: {
-        uTime: { value: 0 },
-        uWarn: { value: 0 },
-        uReady: { value: 0 },
-        uTurn: { value: 0 },
-        uHasTurn: { value: def.navigation?.turn ? 1 : 0 },
-        uTurnFrom: { value: def.navigation?.turn ? flightCurveT(def, def.navigation.turn.fromU) : 0 },
-        uTurnTo: { value: def.navigation?.turn ? flightCurveT(def, def.navigation.turn.toU) : 1 },
-        uRecovery: { value: 0 },
-        uRecoveryProgress: { value: runtime.gateFraction },
-        uGateF: { value: runtime.gateFraction },
-        uFlight: { value: new THREE.Color().setHex(PALETTE.flight, THREE.NoColorSpace) },
-        uRecoveryColor: { value: new THREE.Color().setHex(PALETTE.racingLine, THREE.NoColorSpace) },
-        uInk: { value: new THREE.Color().setHex(PALETTE.ink, THREE.NoColorSpace) },
-        uFoam: { value: new THREE.Color().setHex(PALETTE.foam, THREE.NoColorSpace) },
-        uTurnColor: { value: new THREE.Color().setHex(PALETTE.sunFlare, THREE.NoColorSpace) },
-        uWarnColor: { value: new THREE.Color().setHex(PALETTE.uiWarn, THREE.NoColorSpace) },
-      },
-      vertexShader: /* glsl */ `
-        uniform float uTime;
-        uniform float uRecovery;
-        uniform float uGateF;
-        varying vec2 vUv;
-        ${WAVES_GLSL}
-        void main() {
-          vUv = uv;
-          vec3 p = position;
-          float recoveryTail = uRecovery * step(uGateF - 0.003, uv.y);
-          p.y = mix(p.y, waveHeight(p.xz, uTime) + 0.22, recoveryTail);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        uniform float uTime;
-        uniform float uWarn;
-        uniform float uReady;
-        uniform float uTurn;
-        uniform float uHasTurn;
-        uniform float uTurnFrom;
-        uniform float uTurnTo;
-        uniform float uRecovery;
-        uniform float uRecoveryProgress;
-        uniform float uGateF;
-        uniform vec3 uFlight;
-        uniform vec3 uRecoveryColor;
-        uniform vec3 uInk;
-        uniform vec3 uFoam;
-        uniform vec3 uTurnColor;
-        uniform vec3 uWarnColor;
-        varying vec2 vUv;
-        void main() {
-          float wave = sin(vUv.y * 52.0 - uTime * 5.5) * 0.026;
-          float flowA = 1.0 - smoothstep(0.014, 0.034, abs(vUv.x - (0.43 + wave)));
-          float flowB = 1.0 - smoothstep(0.014, 0.034, abs(vUv.x - (0.57 - wave)));
-          float packetPhase = fract(vUv.y * 13.0 - uTime * 1.9);
-          float packet = smoothstep(0.02, 0.16, packetPhase) * (1.0 - smoothstep(0.55, 0.82, packetPhase));
-          float flow = max(flowA, flowB) * (0.3 + packet * 0.7);
-          float turnIn = smoothstep(uTurnFrom, min(uTurnFrom + 0.025, uTurnTo), vUv.y);
-          float turnOut = 1.0 - smoothstep(max(uTurnFrom, uTurnTo - 0.025), uTurnTo, vUv.y);
-          float turnZone = uHasTurn * turnIn * turnOut;
-          float foamBeat = 0.08 + packet * 0.2;
-          vec3 airColor = mix(uFlight, uFoam, foamBeat);
-          float brakeInk = turnZone * (0.32 + packet * 0.14);
-          vec3 color = mix(airColor, uTurnColor, min(0.62, brakeInk + uTurn * turnZone * 0.22));
-          color = mix(color, uWarnColor, uWarn);
-          float ready = uReady * step(0.5, fract(uTime * 4.0));
-          float edge = 1.0 - smoothstep(0.0, 0.08, min(vUv.x, 1.0 - vUv.x));
-          float virtualPanel = (1.0 - edge) * (0.075 + step(0.72, fract(vUv.y * 22.0 - uTime * 0.8)) * 0.055);
-          float centerVeil = 1.0 - smoothstep(0.08, 0.48, abs(vUv.x - 0.5));
-          float alpha = virtualPanel + centerVeil * 0.045 + edge * 0.2 + flow * (0.34 + ready * 0.08);
-          alpha += turnZone * (0.04 + packet * 0.04);
-          float recoveryT = smoothstep(uGateF, 1.0, vUv.y);
-          float recoverySide = abs(vUv.x - 0.5);
-          float recoveryHalf = mix(0.48, 0.14, recoveryT);
-          float recoveryCore = 1.0 - smoothstep(recoveryHalf * 0.18, recoveryHalf * 0.5, recoverySide);
-          float recoveryEdge = 1.0 - smoothstep(0.025, 0.055, abs(recoverySide - recoveryHalf));
-          float recoveryDash = step(0.46, fract(vUv.y * 18.0 - uTime * 1.8));
-          float recoveryAlpha = recoveryCore * 0.2 + recoveryEdge * recoveryDash * 0.72;
-          float recoveryVisible = step(max(uGateF - 0.003, uRecoveryProgress - 0.035), vUv.y);
-          vec3 recoveryColor = mix(uInk, uRecoveryColor, 0.82 + recoveryCore * 0.18);
-          color = mix(color, recoveryColor, uRecovery * recoveryVisible);
-          alpha = mix(alpha, recoveryAlpha * recoveryVisible * uRecovery, uRecovery);
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
+    const ribbonMat = buildCoreRibbonMaterial(def, runtime);
     const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
     ribbon.name = `${def.id}-ribbon`;
     ribbon.renderOrder = 3;
@@ -3074,57 +4250,94 @@ export class Course implements ICourse {
       backing.instanceMatrix.needsUpdate = true;
       fill.instanceMatrix.needsUpdate = true;
       turnChevronGroup.add(backing, fill);
-      if (def.index === 4) {
-        const verticalInk = makeVerticalChevronGeometry();
-        const verticalFill = makeVerticalChevronGeometry(0.055);
-        const mastGeometry = new THREE.CylinderGeometry(0.07, 0.11, 1, 6);
-        const buoyGeometry = new THREE.CylinderGeometry(0.34, 0.48, 0.5, 8);
-        const foamGeometry = makeFoamRingGeometry();
-        const mastMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.ink, toneMapped: false });
-        const buoyMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.flightDeep, toneMapped: false });
-        const foamMaterial = new THREE.MeshBasicMaterial({
-          color: PALETTE.foam,
-          transparent: true,
-          opacity: 0.8,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-          toneMapped: false,
+      const verticalInk = makeVerticalChevronGeometry();
+      const verticalFill = makeVerticalChevronGeometry(0.055);
+      const mastGeometry = new THREE.CylinderGeometry(0.08, 0.12, 1, 6);
+      const mastCollarGeometry = new THREE.CylinderGeometry(0.13, 0.13, 0.12, 8);
+      const buoyGeometry = new THREE.CylinderGeometry(0.38, 0.52, 0.52, 8);
+      const buoyBandGeometry = new THREE.CylinderGeometry(0.53, 0.53, 0.08, 8);
+      const boardGeometry = new THREE.BoxGeometry(1.65, 1.3, 0.09);
+      const bracketGeometry = new THREE.BoxGeometry(1.68, 0.09, 0.11);
+      const braceGeometry = new THREE.BoxGeometry(0.1, 0.85, 0.06);
+      const foamGeometry = makeFoamRingGeometry();
+
+      const mastMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.boatWoodDark, toneMapped: false });
+      const woodMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.boatWood, toneMapped: false });
+      const brassMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.boatBrass, toneMapped: false });
+      const buoyMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.flightDeep, toneMapped: false });
+      const foamMaterial = new THREE.MeshBasicMaterial({
+        color: PALETTE.foam,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      for (let i = 0; i < turnChevronCount; i++) {
+        const f = (i + 0.75) / (turnChevronCount + 0.5);
+        const u = THREE.MathUtils.lerp(turn.fromU, turn.toU, f);
+        runtimePointAt(runtime, u, p);
+        runtimeTangentAt(runtime, u, t).setY(0).normalize();
+        const outside = turn.direction === 'right' ? 1 : -1;
+        const support = new THREE.Group();
+        support.name = `${def.id}-chevron-buoy-${i + 1}`;
+        support.position.set(p.x + t.z * (HALF_W + 1.75) * outside, 0, p.z - t.x * (HALF_W + 1.75) * outside);
+        const buoy = new THREE.Mesh(buoyGeometry, buoyMaterial);
+        buoy.position.y = 0.26;
+        const brassBand = new THREE.Mesh(buoyBandGeometry, brassMaterial);
+        brassBand.position.y = 0.26;
+        const foam = new THREE.Mesh(foamGeometry, foamMaterial);
+        foam.position.y = 0.46;
+        foam.scale.setScalar(0.42);
+        const mastHeight = Math.max(3.8, p.y + 1.05);
+        const mast = new THREE.Mesh(mastGeometry, mastMaterial);
+        mast.position.y = mastHeight * 0.5;
+        mast.scale.y = mastHeight;
+        const brassCollar = new THREE.Mesh(mastCollarGeometry, brassMaterial);
+        brassCollar.position.y = mastHeight - 0.7;
+
+        const board = new THREE.Mesh(boardGeometry, woodMaterial);
+        board.position.set(0, mastHeight, 0);
+        const topBracket = new THREE.Mesh(bracketGeometry, brassMaterial);
+        topBracket.position.set(0, mastHeight + 0.6, 0);
+        const btmBracket = new THREE.Mesh(bracketGeometry, brassMaterial);
+        btmBracket.position.set(0, mastHeight - 0.6, 0);
+        const crossBrace = new THREE.Mesh(braceGeometry, mastMaterial);
+        crossBrace.position.set(0, mastHeight, -0.06);
+
+        // Front face (+Z)
+        const signInk = new THREE.Mesh(verticalInk, backingMaterial);
+        signInk.position.set(0, mastHeight, 0.05);
+        signInk.scale.setScalar(1.05);
+        const sign = new THREE.Mesh(verticalFill, turnChevronFill);
+        sign.position.set(0, mastHeight, 0.056);
+        sign.scale.setScalar(0.76);
+        sign.renderOrder = 6;
+
+        // Back face (-Z) for double-sided readability
+        const signInkBack = new THREE.Mesh(verticalInk, backingMaterial);
+        signInkBack.position.set(0, mastHeight, -0.05);
+        signInkBack.rotation.y = Math.PI;
+        signInkBack.scale.setScalar(1.05);
+        const signBack = new THREE.Mesh(verticalFill, turnChevronFill);
+        signBack.position.set(0, mastHeight, -0.056);
+        signBack.rotation.y = Math.PI;
+        signBack.scale.setScalar(0.76);
+        signBack.renderOrder = 6;
+
+        support.add(
+          buoy, brassBand, foam, mast, brassCollar,
+          board, topBracket, btmBracket, crossBrace,
+          signInk, sign, signInkBack, signBack,
+        );
+        turnChevronGroup.add(support);
+        const yaw = Math.atan2(-t.x, -t.z) + (turn.direction === 'left' ? Math.PI : 0);
+        this.floaters.push({
+          obj: support,
+          x: support.position.x,
+          z: support.position.z,
+          yawQ: new THREE.Quaternion().setFromAxisAngle(UP, yaw),
         });
-        for (let i = 0; i < turnChevronCount; i++) {
-          const f = (i + 0.75) / (turnChevronCount + 0.5);
-          const u = THREE.MathUtils.lerp(turn.fromU, turn.toU, f);
-          runtimePointAt(runtime, u, p);
-          runtimeTangentAt(runtime, u, t).setY(0).normalize();
-          const outside = turn.direction === 'right' ? 1 : -1;
-          const support = new THREE.Group();
-          support.name = `${def.id}-chevron-buoy-${i + 1}`;
-          support.position.set(p.x + t.z * (HALF_W + 1.75) * outside, 0, p.z - t.x * (HALF_W + 1.75) * outside);
-          const buoy = new THREE.Mesh(buoyGeometry, buoyMaterial);
-          buoy.position.y = 0.24;
-          const foam = new THREE.Mesh(foamGeometry, foamMaterial);
-          foam.position.y = 0.45;
-          foam.scale.setScalar(0.38);
-          const mastHeight = Math.max(3.8, p.y + 1.05);
-          const mast = new THREE.Mesh(mastGeometry, mastMaterial);
-          mast.position.y = mastHeight * 0.5;
-          mast.scale.y = mastHeight;
-          const signInk = new THREE.Mesh(verticalInk, backingMaterial);
-          signInk.position.y = mastHeight;
-          signInk.scale.setScalar(1.08);
-          const sign = new THREE.Mesh(verticalFill, turnChevronFill);
-          sign.position.set(0, mastHeight, 0.055);
-          sign.scale.setScalar(0.78);
-          sign.renderOrder = 6;
-          support.add(buoy, foam, mast, signInk, sign);
-          turnChevronGroup.add(support);
-          const yaw = Math.atan2(-t.x, -t.z) + (turn.direction === 'left' ? Math.PI : 0);
-          this.floaters.push({
-            obj: support,
-            x: support.position.x,
-            z: support.position.z,
-            yawQ: new THREE.Quaternion().setFromAxisAngle(UP, yaw),
-          });
-        }
       }
       routeGroup.add(turnChevronGroup);
     }
@@ -3278,7 +4491,48 @@ export class Course implements ICourse {
       anchor.position.z = 0.42;
       anchor.userData.noOutline = true;
 
-      gateGroup.add(surfaceLock, lockBeam, anchor);
+      // Volumetric God Ray (天光光柱)
+      const godRayGeo = makeGodRayGeometry();
+      const godRayMat = buildGodRayMaterial();
+      const godRayMesh = new THREE.Mesh(godRayGeo, godRayMat);
+      godRayMesh.name = `${def.id}-gate-${i + 1}-godray`;
+      godRayMesh.position.set(0, gateHalfHeight + 0.5, 0);
+      godRayMesh.renderOrder = 2;
+      godRayMesh.userData.noOutline = true;
+      godRayMesh.layers.disable(LAYER_INK);
+      godRayMesh.layers.enable(LAYER_ENERGY);
+
+      // Astrolabe Landmark Beacon
+      const { beaconGroup, beaconRingOuter, beaconRingInner } = buildBeaconAstrolabeVisuals(
+        def.passHalfWidth,
+        gateHalfHeight,
+      );
+      beaconGroup.name = `${def.id}-gate-${i + 1}-beacon`;
+
+      // Gate Passage Resonance Ripple (3D Ring Shockwave)
+      const resonanceMat = buildResonanceRippleMaterial();
+      const resonanceMesh = new THREE.Mesh(new THREE.RingGeometry(0.1, 1.0, 48), resonanceMat);
+      resonanceMesh.name = `${def.id}-gate-${i + 1}-resonance`;
+      resonanceMesh.position.set(0, 0, 0.12);
+      resonanceMesh.visible = false;
+      resonanceMesh.userData.noOutline = true;
+      resonanceMesh.renderOrder = 7;
+      resonanceMesh.layers.disable(LAYER_INK);
+      resonanceMesh.layers.enable(LAYER_ENERGY);
+
+      // Gate Passage Water Surface Ripple
+      const resonanceWaterMat = buildResonanceWaterMaterial();
+      const resonanceWaterMesh = new THREE.Mesh(new THREE.RingGeometry(0.1, 1.0, 48), resonanceWaterMat);
+      resonanceWaterMesh.name = `${def.id}-gate-${i + 1}-resonance-water`;
+      resonanceWaterMesh.rotation.x = -Math.PI / 2;
+      resonanceWaterMesh.position.set(0, -center.y + 0.15, 0);
+      resonanceWaterMesh.visible = false;
+      resonanceWaterMesh.userData.noOutline = true;
+      resonanceWaterMesh.renderOrder = 7;
+      resonanceWaterMesh.layers.disable(LAYER_INK);
+      resonanceWaterMesh.layers.enable(LAYER_ENERGY);
+
+      gateGroup.add(surfaceLock, lockBeam, anchor, godRayMesh, beaconGroup, resonanceMesh, resonanceWaterMesh);
 
       if (def.navigation?.locatorU !== undefined && Math.abs(def.navigation.locatorU - u) < 0.012) {
         const locatorMaterial = new THREE.MeshBasicMaterial({
@@ -3318,6 +4572,16 @@ export class Course implements ICourse {
       lockBeam.layers.disable(LAYER_ENERGY);
       anchor.layers.disable(LAYER_INK);
       anchor.layers.enable(LAYER_ENERGY);
+      godRayMesh.layers.disable(LAYER_INK);
+      godRayMesh.layers.enable(LAYER_ENERGY);
+      beaconRingOuter.layers.disable(LAYER_INK);
+      beaconRingOuter.layers.enable(LAYER_ENERGY);
+      beaconRingInner.layers.disable(LAYER_INK);
+      beaconRingInner.layers.enable(LAYER_ENERGY);
+      resonanceMesh.layers.disable(LAYER_INK);
+      resonanceMesh.layers.enable(LAYER_ENERGY);
+      resonanceWaterMesh.layers.disable(LAYER_INK);
+      resonanceWaterMesh.layers.enable(LAYER_ENERGY);
 
       gateGroup.traverse((o) => {
         if (o.name.startsWith(`${def.id}-locator-`)) {
@@ -3341,12 +4605,24 @@ export class Course implements ICourse {
         pulse: 0,
         anchor,
         cleared: false,
+        godRayMesh,
+        godRayMat,
+        beaconGroup,
+        beaconRingOuter,
+        beaconRingInner,
+        resonanceMesh,
+        resonanceMat,
+        resonanceWaterMesh,
+        resonanceWaterMat,
+        resonanceTimer: 0,
       });
     }
 
     return {
       runtime,
       group: routeGroup,
+      auraRibbonMesh,
+      auraRibbon: auraRibbonMat,
       ribbonMesh: ribbon,
       ribbon: ribbonMat,
       rail: railMat,
@@ -3744,9 +5020,10 @@ export class Course implements ICourse {
   }
 
   /**
-   * Golden Weathervane & Solar Archway finale landmark (金色风向标与日轮终点盛典).
-   * Dormant until all seven routes are cleared, then awakens with radiant golden sunbeams,
-   * a pivoting brass feather vane, spinning anemometer wind cups, and swirling celebration petals.
+   * 70-meter Sea-Sky Giant Triumphal Arch & Golden Weathervane finale landmark (70米海天巨拱与黄金太阳风向标终点盛典).
+   * Dormant until all seven routes are cleared, then awakens with monumental ivory & brass triumphal archway,
+   * radiant golden sunbeams, suspended 5-color prayer pennants, a pivoting brass feather vane, spinning anemometer wind cups,
+   * and swirling celebration petals.
    */
   private buildFinalStation(gantry: THREE.Group): void {
     const station = new THREE.Group();
@@ -3769,162 +5046,252 @@ export class Course implements ICourse {
       station.add(mesh);
     };
 
-    // 1. Dual Left & Right Golden Solar Energy Columns (两侧天光立柱)
-    const coreGeo = new THREE.CylinderGeometry(0.34, 0.62, 12.0, 12, 1, true);
-    const glowGeo = new THREE.CylinderGeometry(0.95, 1.35, 13.0, 12, 1, true);
+    // 1. 70-meter Monumental Ivory Chalk Stone & Brass Triumphal Arch Pillars (70米海天巨拱立柱)
+    const archSpan = 35.0; // -35m to +35m = 70m total span
     for (const side of [-1, 1]) {
-      const glow = new THREE.Mesh(glowGeo, makeEnergyMaterial(PALETTE.sunFlare, 0.26));
-      glow.position.set(side * 7.15, 6.2, 0);
-      addEnergy(glow, 0.26);
+      // Main monumental pillar tower (70m span base)
+      const pillarBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.4, 3.2, 5.0, 16),
+        makeEnergyMaterial(PALETTE.boatBrass, 0.92),
+      );
+      pillarBase.position.set(side * archSpan, 2.5, 0);
+      addEnergy(pillarBase, 0.92);
 
-      const core = new THREE.Mesh(coreGeo, makeEnergyMaterial(PALETTE.sunCore, 0.90));
-      core.position.set(side * 7.15, 6.0, 0);
-      addEnergy(core, 0.90);
+      const pillarCol = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.6, 2.0, 18.0, 16),
+        makeEnergyMaterial(PALETTE.stoneAncient, 0.88),
+      );
+      pillarCol.position.set(side * archSpan, 12.0, 0);
+      addEnergy(pillarCol, 0.88);
+
+      const pillarCapital = new THREE.Mesh(
+        new THREE.BoxGeometry(4.2, 1.8, 4.2),
+        makeEnergyMaterial(PALETTE.boatBrass, 0.94),
+      );
+      pillarCapital.position.set(side * archSpan, 21.0, 0);
+      addEnergy(pillarCapital, 0.94);
+
+      // Flanking solar energy beacons
+      const glowGeo = new THREE.CylinderGeometry(1.4, 2.2, 24.0, 12, 1, true);
+      const glow = new THREE.Mesh(glowGeo, makeEnergyMaterial(PALETTE.sunFlare, 0.32));
+      glow.position.set(side * archSpan, 12.0, 0);
+      addEnergy(glow, 0.32);
+
+      const coreGeo = new THREE.CylinderGeometry(0.45, 0.8, 22.0, 12, 1, true);
+      const core = new THREE.Mesh(coreGeo, makeEnergyMaterial(PALETTE.sunCore, 0.92));
+      core.position.set(side * archSpan, 12.0, 0);
+      addEnergy(core, 0.92);
+
+      // Inner channel light columns
+      const innerGlow = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.85, 1.25, 14.0, 12, 1, true),
+        makeEnergyMaterial(PALETTE.sunFlare, 0.28),
+      );
+      innerGlow.position.set(side * 7.5, 7.0, 0);
+      addEnergy(innerGlow, 0.28);
     }
 
-    // 2. Overhead Solar Crown & Auroral Arch Beam (古代太阳日轮光环与能量横梁)
+    // 2. 70-meter Sea-Sky Monumental Arch Span (70米海天巨拱天桥与太阳神拱)
+    const archSegments = 24;
+    for (let s = 0; s < archSegments; s++) {
+      const u1 = (s / archSegments) * Math.PI;
+      const u2 = ((s + 1) / archSegments) * Math.PI;
+      const x1 = -Math.cos(u1) * archSpan;
+      const y1 = 20.0 + Math.sin(u1) * 7.5;
+      const x2 = -Math.cos(u2) * archSpan;
+      const y2 = 20.0 + Math.sin(u2) * 7.5;
+      const mx = (x1 + x2) * 0.5;
+      const my = (y1 + y2) * 0.5;
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+
+      const archSegment = new THREE.Mesh(
+        new THREE.BoxGeometry(len * 1.05, 1.2, 2.8),
+        makeEnergyMaterial(PALETTE.stoneAncient, 0.85),
+      );
+      archSegment.position.set(mx, my, 0);
+      archSegment.rotation.z = angle;
+      addEnergy(archSegment, 0.85);
+
+      const goldTrim = new THREE.Mesh(
+        new THREE.BoxGeometry(len * 1.05, 0.25, 3.1),
+        makeEnergyMaterial(PALETTE.sunFlare, 0.92),
+      );
+      goldTrim.position.set(mx, my + 0.65, 0);
+      goldTrim.rotation.z = angle;
+      addEnergy(goldTrim, 0.92);
+    }
+
+    // 3. Suspended 5-Color Prayer Pennants across 70m Span (祈风五彩流苏彩旗阵)
+    const pennantColors = [
+      PALETTE.sunCore,
+      PALETTE.petalPink,
+      PALETTE.seaShallow,
+      PALETTE.vineGreen,
+      PALETTE.gliderCanvas,
+    ] as const;
+
+    const pennantCount = 36;
+    for (let p = 0; p < pennantCount; p++) {
+      const frac = (p + 0.5) / pennantCount;
+      const px = -archSpan * 0.92 + frac * archSpan * 1.84;
+      const catenaryDrop = Math.sin(frac * Math.PI) * 5.2;
+      const py = 23.5 - catenaryDrop;
+      const color = pennantColors[p % pennantColors.length];
+
+      const flagMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.2, 1.8),
+        makeEnergyMaterial(color, 0.88),
+      );
+      flagMesh.position.set(px, py - 0.9, 0);
+      flagMesh.userData.isPennant = true;
+      flagMesh.userData.pennantIndex = p;
+      addEnergy(flagMesh, 0.88);
+    }
+
+    // 4. Overhead Solar Crown & Auroral Arch Beam at Apex (中央太阳日轮与能量横梁)
     const crown = new THREE.Mesh(
-      new THREE.TorusGeometry(6.2, 0.22, 8, 48),
-      makeEnergyMaterial(PALETTE.sunCore, 0.78),
+      new THREE.TorusGeometry(7.2, 0.28, 8, 48),
+      makeEnergyMaterial(PALETTE.sunCore, 0.82),
     );
-    crown.position.y = 9.2;
-    crown.scale.set(1.24, 0.65, 1);
-    addEnergy(crown, 0.78);
+    crown.position.y = 23.5;
+    crown.scale.set(1.28, 0.72, 1);
+    addEnergy(crown, 0.82);
 
     const crownAura = new THREE.Mesh(
-      new THREE.TorusGeometry(6.6, 0.48, 8, 48),
-      makeEnergyMaterial(PALETTE.sunFlare, 0.28),
+      new THREE.TorusGeometry(7.8, 0.55, 8, 48),
+      makeEnergyMaterial(PALETTE.sunFlare, 0.32),
     );
-    crownAura.position.y = 9.2;
-    crownAura.scale.set(1.24, 0.65, 1);
-    addEnergy(crownAura, 0.28);
+    crownAura.position.y = 23.5;
+    crownAura.scale.set(1.28, 0.72, 1);
+    addEnergy(crownAura, 0.32);
 
     const beam = new THREE.Mesh(
-      new THREE.BoxGeometry(14.6, 0.2, 0.24),
-      makeEnergyMaterial(PALETTE.sunFlare, 0.68),
+      new THREE.BoxGeometry(16.5, 0.28, 0.35),
+      makeEnergyMaterial(PALETTE.sunFlare, 0.72),
     );
-    beam.position.y = 9.8;
-    addEnergy(beam, 0.68);
+    beam.position.y = 24.2;
+    addEnergy(beam, 0.72);
 
-    // 3. Central Golden Weathervane & Anemometer Assembly (金色风向标与风速仪)
+    // 5. Central Golden Weathervane & Anemometer Assembly (金色风向标与风速仪)
     // A: Brass Base Pedestal & Spindle Mast
     const basePedestal = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.32, 0.46, 0.45, 12),
-      makeEnergyMaterial(PALETTE.boatBrass, 0.92),
+      new THREE.CylinderGeometry(0.42, 0.62, 0.65, 12),
+      makeEnergyMaterial(PALETTE.boatBrass, 0.94),
     );
-    basePedestal.position.set(0, 10.1, 0);
-    addEnergy(basePedestal, 0.92);
+    basePedestal.position.set(0, 24.6, 0);
+    addEnergy(basePedestal, 0.94);
 
     const spindleMast = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.08, 3.2, 10),
-      makeEnergyMaterial(PALETTE.boatBrass, 0.95),
+      new THREE.CylinderGeometry(0.12, 0.12, 4.2, 10),
+      makeEnergyMaterial(PALETTE.boatBrass, 0.96),
     );
-    spindleMast.position.set(0, 11.8, 0);
-    addEnergy(spindleMast, 0.95);
+    spindleMast.position.set(0, 26.8, 0);
+    addEnergy(spindleMast, 0.96);
 
     // Turned collar beads
-    for (const collarY of [10.4, 11.2, 12.6]) {
+    for (const collarY of [25.2, 26.2, 27.8]) {
       const collar = new THREE.Mesh(
-        new THREE.TorusGeometry(0.16, 0.045, 6, 16),
-        makeEnergyMaterial(PALETTE.sunCore, 0.88),
+        new THREE.TorusGeometry(0.24, 0.065, 6, 16),
+        makeEnergyMaterial(PALETTE.sunCore, 0.90),
       );
       collar.rotation.x = Math.PI / 2;
       collar.position.set(0, collarY, 0);
-      addEnergy(collar, 0.88);
+      addEnergy(collar, 0.90);
     }
 
     // B: 4-Way Cardinal Compass Arms (十字方位罗盘翼臂)
     const armX = new THREE.Mesh(
-      new THREE.BoxGeometry(2.6, 0.055, 0.055),
-      makeEnergyMaterial(PALETTE.boatBrass, 0.88),
+      new THREE.BoxGeometry(3.6, 0.075, 0.075),
+      makeEnergyMaterial(PALETTE.boatBrass, 0.90),
     );
-    armX.position.set(0, 10.9, 0);
-    addEnergy(armX, 0.88);
+    armX.position.set(0, 25.8, 0);
+    addEnergy(armX, 0.90);
 
     const armZ = new THREE.Mesh(
-      new THREE.BoxGeometry(0.055, 0.055, 2.6),
-      makeEnergyMaterial(PALETTE.boatBrass, 0.88),
+      new THREE.BoxGeometry(0.075, 0.075, 3.6),
+      makeEnergyMaterial(PALETTE.boatBrass, 0.90),
     );
-    armZ.position.set(0, 10.9, 0);
-    addEnergy(armZ, 0.88);
+    armZ.position.set(0, 25.8, 0);
+    addEnergy(armZ, 0.90);
 
     // 4 Cardinal brass finial spheres
-    for (const [cx, cz] of [[1.35, 0], [-1.35, 0], [0, 1.35], [0, -1.35]]) {
+    for (const [cx, cz] of [[1.85, 0], [-1.85, 0], [0, 1.85], [0, -1.85]]) {
       const finial = new THREE.Mesh(
-        new THREE.SphereGeometry(0.11, 8, 8),
-        makeEnergyMaterial(PALETTE.sunCore, 0.92),
+        new THREE.SphereGeometry(0.16, 8, 8),
+        makeEnergyMaterial(PALETTE.sunCore, 0.94),
       );
-      finial.position.set(cx, 10.9, cz);
-      addEnergy(finial, 0.92);
+      finial.position.set(cx, 25.8, cz);
+      addEnergy(finial, 0.94);
     }
 
     // C: Pivoting Golden Feather/Glider Vane (金色风之翼羽箭风向标)
     const vaneGroup = new THREE.Group();
     vaneGroup.name = 'weathervane-feather-arrow';
-    vaneGroup.position.set(0, 11.9, 0);
+    vaneGroup.position.set(0, 27.2, 0);
     vaneGroup.userData.isWeathervane = true;
 
     // Vane central hub
     const vaneHub = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 10, 10),
-      makeEnergyMaterial(PALETTE.boatBrass, 0.95),
+      new THREE.SphereGeometry(0.26, 10, 10),
+      makeEnergyMaterial(PALETTE.boatBrass, 0.96),
     );
-    vaneHub.userData.finalBaseOpacity = 0.95;
+    vaneHub.userData.finalBaseOpacity = 0.96;
     vaneHub.layers.enable(LAYER_ENERGY);
     vaneGroup.add(vaneHub);
 
     // Arrow front shaft & pointer head
     const arrowShaft = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.038, 0.038, 2.2, 8),
-      makeEnergyMaterial(PALETTE.boatBrass, 0.92),
+      new THREE.CylinderGeometry(0.052, 0.052, 3.0, 8),
+      makeEnergyMaterial(PALETTE.boatBrass, 0.94),
     );
     arrowShaft.rotation.x = Math.PI / 2;
-    arrowShaft.position.set(0, 0, 0.1);
-    arrowShaft.userData.finalBaseOpacity = 0.92;
+    arrowShaft.position.set(0, 0, 0.2);
+    arrowShaft.userData.finalBaseOpacity = 0.94;
     arrowShaft.layers.enable(LAYER_ENERGY);
     vaneGroup.add(arrowShaft);
 
     const arrowHead = new THREE.Mesh(
-      new THREE.ConeGeometry(0.22, 0.72, 8),
-      makeEnergyMaterial(PALETTE.sunCore, 0.95),
+      new THREE.ConeGeometry(0.32, 1.0, 8),
+      makeEnergyMaterial(PALETTE.sunCore, 0.96),
     );
     arrowHead.rotation.x = Math.PI / 2;
-    arrowHead.position.set(0, 0, 1.25);
-    arrowHead.userData.finalBaseOpacity = 0.95;
+    arrowHead.position.set(0, 0, 1.75);
+    arrowHead.userData.finalBaseOpacity = 0.96;
     arrowHead.layers.enable(LAYER_ENERGY);
     vaneGroup.add(arrowHead);
 
     // Solar diamond on arrowhead
     const arrowDiamond = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.14, 0),
-      makeEnergyMaterial(PALETTE.sunFlare, 0.95),
+      new THREE.OctahedronGeometry(0.20, 0),
+      makeEnergyMaterial(PALETTE.sunFlare, 0.96),
     );
-    arrowDiamond.position.set(0, 0, 1.05);
-    arrowDiamond.userData.finalBaseOpacity = 0.95;
+    arrowDiamond.position.set(0, 0, 1.45);
+    arrowDiamond.userData.finalBaseOpacity = 0.96;
     arrowDiamond.layers.enable(LAYER_ENERGY);
     vaneGroup.add(arrowDiamond);
 
     // Tail feather vane (stylized double wings)
     for (const side of [-1, 1]) {
       const featherFin = new THREE.Mesh(
-        new THREE.BoxGeometry(0.04, 0.42, 0.95),
-        makeEnergyMaterial(PALETTE.sunFlare, 0.88),
+        new THREE.BoxGeometry(0.05, 0.62, 1.35),
+        makeEnergyMaterial(PALETTE.sunFlare, 0.90),
       );
       featherFin.rotation.x = 0.18;
       featherFin.rotation.z = side * 0.32;
-      featherFin.position.set(side * 0.12, 0.14, -0.82);
-      featherFin.userData.finalBaseOpacity = 0.88;
+      featherFin.position.set(side * 0.16, 0.22, -1.15);
+      featherFin.userData.finalBaseOpacity = 0.90;
       featherFin.layers.enable(LAYER_ENERGY);
       vaneGroup.add(featherFin);
 
       const featherInlay = new THREE.Mesh(
-        new THREE.BoxGeometry(0.045, 0.24, 0.65),
-        makeEnergyMaterial(PALETTE.gliderCanvas, 0.92),
+        new THREE.BoxGeometry(0.06, 0.36, 0.95),
+        makeEnergyMaterial(PALETTE.gliderCanvas, 0.94),
       );
       featherInlay.rotation.x = 0.18;
       featherInlay.rotation.z = side * 0.32;
-      featherInlay.position.set(side * 0.13, 0.14, -0.82);
-      featherInlay.userData.finalBaseOpacity = 0.92;
+      featherInlay.position.set(side * 0.17, 0.22, -1.15);
+      featherInlay.userData.finalBaseOpacity = 0.94;
       featherInlay.layers.enable(LAYER_ENERGY);
       vaneGroup.add(featherInlay);
     }
@@ -3933,46 +5300,46 @@ export class Course implements ICourse {
     // D: Spinning Anemometer Rotor (顶部旋转三杯式风速仪)
     const anemometerGroup = new THREE.Group();
     anemometerGroup.name = 'anemometer-rotor';
-    anemometerGroup.position.set(0, 13.3, 0);
+    anemometerGroup.position.set(0, 29.2, 0);
     anemometerGroup.userData.isAnemometer = true;
 
     const spireCone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.11, 0.48, 8),
-      makeEnergyMaterial(PALETTE.sunCore, 0.95),
+      new THREE.ConeGeometry(0.16, 0.68, 8),
+      makeEnergyMaterial(PALETTE.sunCore, 0.96),
     );
-    spireCone.position.set(0, 0.24, 0);
-    spireCone.userData.finalBaseOpacity = 0.95;
+    spireCone.position.set(0, 0.34, 0);
+    spireCone.userData.finalBaseOpacity = 0.96;
     spireCone.layers.enable(LAYER_ENERGY);
     anemometerGroup.add(spireCone);
 
     for (let c = 0; c < 3; c++) {
       const armAngle = (c / 3) * Math.PI * 2;
       const spokeArm = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.024, 0.024, 0.68, 6),
-        makeEnergyMaterial(PALETTE.boatBrass, 0.90),
+        new THREE.CylinderGeometry(0.034, 0.034, 0.95, 6),
+        makeEnergyMaterial(PALETTE.boatBrass, 0.92),
       );
       spokeArm.rotation.z = Math.PI / 2;
       spokeArm.rotation.y = armAngle;
-      spokeArm.position.set(Math.cos(armAngle) * 0.34, 0, Math.sin(armAngle) * 0.34);
-      spokeArm.userData.finalBaseOpacity = 0.90;
+      spokeArm.position.set(Math.cos(armAngle) * 0.48, 0, Math.sin(armAngle) * 0.48);
+      spokeArm.userData.finalBaseOpacity = 0.92;
       spokeArm.layers.enable(LAYER_ENERGY);
       anemometerGroup.add(spokeArm);
 
       // Hemispherical wind cup
       const cup = new THREE.Mesh(
-        new THREE.SphereGeometry(0.14, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
-        makeEnergyMaterial(PALETTE.sunFlare, 0.92),
+        new THREE.SphereGeometry(0.20, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        makeEnergyMaterial(PALETTE.sunFlare, 0.94),
       );
       cup.rotation.z = Math.PI / 2;
       cup.rotation.y = armAngle + Math.PI / 2;
-      cup.position.set(Math.cos(armAngle) * 0.68, 0, Math.sin(armAngle) * 0.68);
-      cup.userData.finalBaseOpacity = 0.92;
+      cup.position.set(Math.cos(armAngle) * 0.95, 0, Math.sin(armAngle) * 0.95);
+      cup.userData.finalBaseOpacity = 0.94;
       cup.layers.enable(LAYER_ENERGY);
       anemometerGroup.add(cup);
     }
     station.add(anemometerGroup);
 
-    // 4. 3D Swirling Celebration Petals & Solar Sparkle Crystals (漫天花瓣与光尘粒子)
+    // 6. 3D Swirling Celebration Petals & Solar Sparkle Crystals (漫天花瓣与光尘粒子)
     const petalColors = [
       PALETTE.petalPink,
       PALETTE.gliderCanvas,
@@ -3981,21 +5348,2705 @@ export class Course implements ICourse {
       PALETTE.sunCore,
     ] as const;
 
-    const particleCount = 24;
+    const particleCount = 36;
     for (let i = 0; i < particleCount; i++) {
-      const isPetal = i < 14;
+      const isPetal = i < 22;
       const color = isPetal ? petalColors[i % petalColors.length] : (i % 2 === 0 ? PALETTE.sunCore : PALETTE.sparkle);
-      const geom = new THREE.OctahedronGeometry(isPetal ? 0.20 : 0.13, 0);
+      const geom = new THREE.OctahedronGeometry(isPetal ? 0.28 : 0.18, 0);
       if (isPetal) geom.scale(1.0, 0.28, 1.4);
 
-      const particle = new THREE.Mesh(geom, makeEnergyMaterial(color, 0.82));
+      const particle = new THREE.Mesh(geom, makeEnergyMaterial(color, 0.85));
       particle.userData.finalParticle = i;
-      particle.userData.finalBaseOpacity = 0.82;
-      addEnergy(particle, 0.82);
+      particle.userData.finalBaseOpacity = 0.85;
+      addEnergy(particle, 0.85);
     }
 
     station.traverse((object) => object.layers.enable(LAYER_ENERGY));
     gantry.add(station);
     this.finalStation = station;
+  }
+
+  private buildThermalUpdrafts(): void {
+    const updraftMat = makeThermalUpdraftMaterial();
+    const swirlMat = makeThermalSurfaceSwirlMaterial();
+    const particleGeo = new THREE.OctahedronGeometry(0.22, 0);
+    const particleMat = createToonMaterial({
+      color: PALETTE.sun,
+      emissive: PALETTE.sun,
+      emissiveIntensity: 0.75,
+    });
+
+    for (const def of THERMAL_UPDRAFTS) {
+      const group = new THREE.Group();
+      group.name = `updraft-${def.id}`;
+      group.position.set(def.x, def.baseY, def.z);
+
+      // 1. Updraft ascending funnel cylinder
+      const cylGeo = new THREE.CylinderGeometry(
+        def.radius * 1.15,
+        def.radius * 0.92,
+        def.height,
+        28,
+        16,
+        true,
+      );
+      cylGeo.translate(0, def.height * 0.5, 0);
+      const cylMesh = new THREE.Mesh(cylGeo, updraftMat);
+      cylMesh.userData.noOutline = true;
+      cylMesh.layers.enable(LAYER_ENERGY);
+      group.add(cylMesh);
+
+      // 2. Base surface water swirl disc
+      const discGeo = new THREE.PlaneGeometry(def.radius * 2.2, def.radius * 2.2);
+      discGeo.rotateX(-Math.PI / 2);
+      const baseDisc = new THREE.Mesh(discGeo, swirlMat);
+      baseDisc.position.y = 0.08;
+      baseDisc.userData.noOutline = true;
+      baseDisc.layers.enable(LAYER_ENERGY);
+      group.add(baseDisc);
+
+      // 3. Ascending warm pollen / sun sparkle particle motes
+      const particles = new THREE.InstancedMesh(particleGeo, particleMat, 10);
+      particles.userData.noOutline = true;
+      particles.layers.enable(LAYER_ENERGY);
+      group.add(particles);
+
+      this.object.add(group);
+      this.thermalUpdraftVisuals.push({
+        def,
+        group,
+        material: updraftMat,
+        baseDiscMat: swirlMat,
+        baseDisc,
+        particles,
+      });
+    }
+  }
+
+  private buildWindTunnels(): void {
+    const apertureMat = makeWindRingApertureMaterial();
+    const guideMat = makeWindTunnelGuideMaterial();
+    const outerRingMat = createToonMaterial({
+      color: PALETTE.ink,
+      emissive: PALETTE.hullPlayer,
+      emissiveIntensity: 0.45,
+    });
+    const innerGlowMat = createToonMaterial({
+      color: PALETTE.flight,
+      emissive: PALETTE.flight,
+      emissiveIntensity: 0.85,
+    });
+    const wingletMat = createToonMaterial({
+      color: PALETTE.boatBrass,
+      emissive: PALETTE.boatBrass,
+      emissiveIntensity: 0.35,
+    });
+
+    for (const def of WIND_TUNNELS) {
+      const group = new THREE.Group();
+      group.name = `tunnel-${def.id}`;
+      const ringVisuals: WindRingVisual[] = [];
+      const guideRibbons: THREE.Mesh[] = [];
+
+      for (let r = 0; r < def.rings.length; r++) {
+        const ringDef = def.rings[r];
+        const ringGroup = new THREE.Group();
+        ringGroup.name = `ring-${def.id}-${r}`;
+        ringGroup.position.set(ringDef.x, ringDef.y, ringDef.z);
+
+        const dir = new THREE.Vector3(ringDef.dirX, ringDef.dirY, ringDef.dirZ).normalize();
+        ringGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+
+        // Outer sturdy ring
+        const outerGeo = new THREE.TorusGeometry(ringDef.radius, 0.16, 8, 28);
+        const outerRing = new THREE.Mesh(outerGeo, outerRingMat);
+        outerRing.layers.enable(LAYER_ENERGY);
+        ringGroup.add(outerRing);
+
+        // Inner glowing speed ring
+        const innerGeo = new THREE.TorusGeometry(ringDef.radius * 0.95, 0.08, 6, 28);
+        const innerGlow = new THREE.Mesh(innerGeo, innerGlowMat);
+        innerGlow.layers.enable(LAYER_ENERGY);
+        ringGroup.add(innerGlow);
+
+        // 4 aerofoil winglets around ring perimeter
+        const winglets = new THREE.Group();
+        for (let w = 0; w < 4; w++) {
+          const angle = (w / 4) * Math.PI * 2;
+          const wingletGeo = new THREE.BoxGeometry(0.12, 0.55, 0.28);
+          const winglet = new THREE.Mesh(wingletGeo, wingletMat);
+          winglet.position.set(Math.cos(angle) * ringDef.radius, Math.sin(angle) * ringDef.radius, 0);
+          winglet.rotation.z = angle + 0.15;
+          winglet.layers.enable(LAYER_ENERGY);
+          winglets.add(winglet);
+        }
+        ringGroup.add(winglets);
+
+        // Inner vortex aperture disc
+        const apertureGeo = new THREE.PlaneGeometry(ringDef.radius * 1.9, ringDef.radius * 1.9);
+        const aperture = new THREE.Mesh(apertureGeo, apertureMat);
+        aperture.userData.noOutline = true;
+        aperture.layers.enable(LAYER_ENERGY);
+        ringGroup.add(aperture);
+
+        group.add(ringGroup);
+        ringVisuals.push({
+          def: ringDef,
+          group: ringGroup,
+          outerRing,
+          innerGlow,
+          winglets,
+          apertureMat,
+          aperture,
+          pulse: 0,
+        });
+      }
+
+      // Connecting guide streamline ribbons
+      for (let r = 0; r < def.rings.length - 1; r++) {
+        const r0 = def.rings[r];
+        const r1 = def.rings[r + 1];
+        const p0 = new THREE.Vector3(r0.x, r0.y, r0.z);
+        const p1 = new THREE.Vector3(r1.x, r1.y, r1.z);
+        const dist = p0.distanceTo(p1);
+        const mid = p0.clone().add(p1).multiplyScalar(0.5);
+        const dir = p1.clone().sub(p0).normalize();
+
+        const guideGeo = new THREE.CylinderGeometry(
+          r1.radius * 0.98,
+          r0.radius * 0.98,
+          dist,
+          16,
+          1,
+          true,
+        );
+        guideGeo.rotateX(Math.PI / 2);
+        const guideMesh = new THREE.Mesh(guideGeo, guideMat);
+        guideMesh.position.copy(mid);
+        guideMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+        guideMesh.userData.noOutline = true;
+        guideMesh.layers.enable(LAYER_ENERGY);
+        group.add(guideMesh);
+        guideRibbons.push(guideMesh);
+      }
+
+      this.object.add(group);
+      this.windTunnelVisuals.push({
+        def,
+        group,
+        ringVisuals,
+        guideRibbons,
+        guideMat,
+      });
+    }
+  }
+
+  // ---------------------------------------------------- 3D wonder scenery ----
+
+  private buildWonderCourseScenery(): void {
+    const stoneParts: THREE.BufferGeometry[] = [];
+    const chalkParts: THREE.BufferGeometry[] = [];
+    const canyonParts: THREE.BufferGeometry[] = [];
+    const mountainGreenParts: THREE.BufferGeometry[] = [];
+    const mountainRockParts: THREE.BufferGeometry[] = [];
+    const waterfallParts: THREE.BufferGeometry[] = [];
+    const wallParts: THREE.BufferGeometry[] = [];
+    const roofParts: THREE.BufferGeometry[] = [];
+    const grassParts: THREE.BufferGeometry[] = [];
+    const woodParts: THREE.BufferGeometry[] = [];
+    const brassParts: THREE.BufferGeometry[] = [];
+    const sandParts: THREE.BufferGeometry[] = [];
+    const coralPinkParts: THREE.BufferGeometry[] = [];
+    const coralTealParts: THREE.BufferGeometry[] = [];
+    const coralGoldParts: THREE.BufferGeometry[] = [];
+    const foliageParts: THREE.BufferGeometry[] = [];
+
+    // Helper to ensure geometry is indexed and clean for mergeGeometries
+    const cleanGeo = (geo: THREE.BufferGeometry): THREE.BufferGeometry => {
+      if (!geo.index) {
+        const count = geo.attributes.position ? geo.attributes.position.count : 0;
+        const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
+        for (let i = 0; i < count; i++) indices[i] = i;
+        geo.setIndex(new THREE.BufferAttribute(indices, 1));
+      }
+      const count = geo.attributes.position ? geo.attributes.position.count : 0;
+      if (!geo.attributes.normal && count > 0) geo.computeVertexNormals();
+      if (!geo.attributes.uv && count > 0) {
+        const uvs = new Float32Array(count * 2);
+        geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      }
+      for (const key of Object.keys(geo.attributes)) {
+        if (key !== 'position' && key !== 'normal' && key !== 'uv') {
+          geo.deleteAttribute(key);
+        }
+      }
+      return geo;
+    };
+
+    // 1. Procedural Chalk Sea Cliff Generator (Warm White Chalk Base & Emerald Grass Terraces)
+    const makeChalkCapeCliff = (
+      cx: number,
+      cz: number,
+      baseR: number,
+      topR: number,
+      height: number,
+      segments = 18,
+      stepCount = 5,
+      seed = 0,
+    ): void => {
+      const layerCount = stepCount + 2;
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+
+      for (let l = 0; l < layerCount; l++) {
+        const f = l / (layerCount - 1);
+        const y = -2.8 + (height + 2.8) * f;
+        const baseRadius = THREE.MathUtils.lerp(baseR, topR, Math.pow(f, 0.85));
+        let shelf = 1.0;
+        if (l === 0) shelf = 1.18;
+        else if (l === 1 && f < 0.25) shelf = 0.90;
+        else if (l % 2 === 1 && l < layerCount - 1) shelf = 1.06;
+        else shelf = 0.96;
+        const layerR = baseRadius * shelf;
+
+        for (let i = 0; i < segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const noise = Math.sin(angle * 3 + seed * 1.7) * 0.14 + Math.cos(angle * 5 + seed * 2.3) * 0.08 + Math.sin(angle * 7 + l) * 0.04;
+          const r = layerR * (1 + noise);
+          pos.push(cx + Math.cos(angle) * r, y, cz + Math.sin(angle) * r);
+          uvs.push(i / segments, f);
+        }
+      }
+
+      for (let l = 0; l < layerCount - 1; l++) {
+        for (let i = 0; i < segments; i++) {
+          const nextI = (i + 1) % segments;
+          const a = l * segments + i;
+          const b = l * segments + nextI;
+          const c = (l + 1) * segments + i;
+          const d = (l + 1) * segments + nextI;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+
+      const topCenterIdx = pos.length / 3;
+      pos.push(cx, height, cz);
+      uvs.push(0.5, 0.5);
+      const topLayerStart = (layerCount - 1) * segments;
+      for (let i = 0; i < segments; i++) {
+        const nextI = (i + 1) % segments;
+        indices.push(topCenterIdx, topLayerStart + i, topLayerStart + nextI);
+      }
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      rockGeo.setIndex(indices);
+      rockGeo.computeVertexNormals();
+      chalkParts.push(rockGeo);
+
+      // Top emerald grass cap
+      const grassPos: number[] = [cx, height + 0.12, cz];
+      const grassUvs: number[] = [0.5, 0.5];
+      const grassIdx: number[] = [];
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const noise = Math.sin(angle * 3 + seed * 1.7) * 0.14 + Math.cos(angle * 5 + seed * 2.3) * 0.08;
+        const r = topR * 1.02 * (1 + noise);
+        grassPos.push(cx + Math.cos(angle) * r, height + 0.12, cz + Math.sin(angle) * r);
+        grassUvs.push(Math.cos(angle) * 0.5 + 0.5, Math.sin(angle) * 0.5 + 0.5);
+        const nextI = (i + 1) % segments;
+        grassIdx.push(0, i + 1, nextI + 1);
+      }
+      const grassGeo = new THREE.BufferGeometry();
+      grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassPos, 3));
+      grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUvs, 2));
+      grassGeo.setIndex(grassIdx);
+      grassGeo.computeVertexNormals();
+      grassParts.push(grassGeo);
+    };
+
+    // 2. Procedural Canyon Sandstone Cliff Generator (Warm Terracotta Strata for Zone 3)
+    const makeCanyonCliff = (
+      cx: number,
+      cz: number,
+      baseR: number,
+      topR: number,
+      height: number,
+      segments = 16,
+      stepCount = 5,
+      seed = 0,
+    ): void => {
+      const layerCount = stepCount + 2;
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+
+      for (let l = 0; l < layerCount; l++) {
+        const f = l / (layerCount - 1);
+        const y = -2.5 + (height + 2.5) * f;
+        const baseRadius = THREE.MathUtils.lerp(baseR, topR, f);
+        const shelf = l % 2 === 1 && l < layerCount - 1 ? 1.08 : 0.95;
+        const layerR = baseRadius * (l === 0 ? 1.15 : shelf);
+
+        for (let i = 0; i < segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const noise = Math.sin(angle * 3 + seed * 1.7) * 0.12 + Math.cos(angle * 5 + seed * 2.3) * 0.07;
+          const r = layerR * (1 + noise);
+          pos.push(cx + Math.cos(angle) * r, y, cz + Math.sin(angle) * r);
+          uvs.push(i / segments, f);
+        }
+      }
+
+      for (let l = 0; l < layerCount - 1; l++) {
+        for (let i = 0; i < segments; i++) {
+          const nextI = (i + 1) % segments;
+          const a = l * segments + i;
+          const b = l * segments + nextI;
+          const c = (l + 1) * segments + i;
+          const d = (l + 1) * segments + nextI;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+
+      const topCenterIdx = pos.length / 3;
+      pos.push(cx, height, cz);
+      uvs.push(0.5, 0.5);
+      const topLayerStart = (layerCount - 1) * segments;
+      for (let i = 0; i < segments; i++) {
+        const nextI = (i + 1) % segments;
+        indices.push(topCenterIdx, topLayerStart + i, topLayerStart + nextI);
+      }
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      rockGeo.setIndex(indices);
+      rockGeo.computeVertexNormals();
+      canyonParts.push(rockGeo);
+
+      // Top grass cap
+      const grassPos: number[] = [cx, height + 0.08, cz];
+      const grassUvs: number[] = [0.5, 0.5];
+      const grassIdx: number[] = [];
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const noise = Math.sin(angle * 3 + seed * 1.7) * 0.12 + Math.cos(angle * 5 + seed * 2.3) * 0.07;
+        const r = topR * 0.98 * (1 + noise);
+        grassPos.push(cx + Math.cos(angle) * r, height + 0.08, cz + Math.sin(angle) * r);
+        grassUvs.push(Math.cos(angle) * 0.5 + 0.5, Math.sin(angle) * 0.5 + 0.5);
+        const nextI = (i + 1) % segments;
+        grassIdx.push(0, i + 1, nextI + 1);
+      }
+      const grassGeo = new THREE.BufferGeometry();
+      grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassPos, 3));
+      grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUvs, 2));
+      grassGeo.setIndex(grassIdx);
+      grassGeo.computeVertexNormals();
+      grassParts.push(grassGeo);
+    };
+
+    // 3. Mediterranean Red-Tiled Whitewashed Cottage Generator
+    const makeVillageHouse = (
+      cx: number,
+      cy: number,
+      cz: number,
+      yaw: number,
+      w = 6.2,
+      l = 8.5,
+      h = 5.2,
+      hasAnnex = false,
+      hasBalcony = true,
+    ): void => {
+      const houseWalls: THREE.BufferGeometry[] = [];
+      const houseRoofs: THREE.BufferGeometry[] = [];
+      const houseWood: THREE.BufferGeometry[] = [];
+      const houseStone: THREE.BufferGeometry[] = [];
+
+      const plinthH = 1.2;
+      const plinth = new THREE.BoxGeometry(w + 0.6, plinthH, l + 0.6);
+      plinth.translate(0, plinthH * 0.5, 0);
+      houseStone.push(plinth);
+
+      const wall = new THREE.BoxGeometry(w, h, l);
+      wall.translate(0, plinthH + h * 0.5, 0);
+      houseWalls.push(wall);
+
+      const gableH = w * 0.42;
+      const gableFrontPos = [
+        -w * 0.5, plinthH + h, l * 0.5,
+        w * 0.5, plinthH + h, l * 0.5,
+        0, plinthH + h + gableH, l * 0.5,
+      ];
+      const gableFront = new THREE.BufferGeometry();
+      gableFront.setAttribute('position', new THREE.Float32BufferAttribute(gableFrontPos, 3));
+      gableFront.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.5, 1], 2));
+      gableFront.setIndex([0, 1, 2]);
+      gableFront.computeVertexNormals();
+      houseWalls.push(gableFront);
+
+      const gableBackPos = [
+        w * 0.5, plinthH + h, -l * 0.5,
+        -w * 0.5, plinthH + h, -l * 0.5,
+        0, plinthH + h + gableH, -l * 0.5,
+      ];
+      const gableBack = new THREE.BufferGeometry();
+      gableBack.setAttribute('position', new THREE.Float32BufferAttribute(gableBackPos, 3));
+      gableBack.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.5, 1], 2));
+      gableBack.setIndex([0, 1, 2]);
+      gableBack.computeVertexNormals();
+      houseWalls.push(gableBack);
+
+      const eaveOverhang = 0.55;
+      const roofThick = 0.22;
+      const slopeLen = Math.hypot(w * 0.5 + eaveOverhang, gableH) + 0.15;
+      const slopeAngle = Math.atan2(gableH, w * 0.5);
+
+      const roofLeft = new THREE.BoxGeometry(slopeLen, roofThick, l + eaveOverhang * 2);
+      roofLeft.rotateZ(-slopeAngle);
+      roofLeft.translate(-w * 0.25 - eaveOverhang * 0.25, plinthH + h + gableH * 0.5, 0);
+      houseRoofs.push(roofLeft);
+
+      const roofRight = new THREE.BoxGeometry(slopeLen, roofThick, l + eaveOverhang * 2);
+      roofRight.rotateZ(slopeAngle);
+      roofRight.translate(w * 0.25 + eaveOverhang * 0.25, plinthH + h + gableH * 0.5, 0);
+      houseRoofs.push(roofRight);
+
+      const ridge = new THREE.CylinderGeometry(0.18, 0.18, l + eaveOverhang * 2.2, 6);
+      ridge.rotateX(Math.PI / 2);
+      ridge.translate(0, plinthH + h + gableH + 0.08, 0);
+      houseRoofs.push(ridge);
+
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const cornerPost = new THREE.BoxGeometry(0.25, h, 0.25);
+          cornerPost.translate(sx * (w * 0.5 - 0.1), plinthH + h * 0.5, sz * (l * 0.5 - 0.1));
+          houseWood.push(cornerPost);
+        }
+      }
+
+      const door = new THREE.BoxGeometry(1.2, 2.2, 0.15);
+      door.translate(0, plinthH + 1.1, l * 0.5 + 0.05);
+      houseWood.push(door);
+
+      const windowFront = new THREE.BoxGeometry(1.0, 1.2, 0.12);
+      windowFront.translate(0, plinthH + 3.4, l * 0.5 + 0.05);
+      houseWood.push(windowFront);
+
+      for (const sz of [-l * 0.25, l * 0.25]) {
+        const windowSide = new THREE.BoxGeometry(0.12, 1.1, 0.9);
+        windowSide.translate(w * 0.5 + 0.05, plinthH + 2.5, sz);
+        houseWood.push(windowSide);
+      }
+
+      const chimney = new THREE.BoxGeometry(0.85, 3.2, 0.85);
+      chimney.translate(w * 0.3, plinthH + h + 1.2, -l * 0.25);
+      houseStone.push(chimney);
+
+      const chimPot = new THREE.CylinderGeometry(0.24, 0.28, 0.65, 8);
+      chimPot.translate(w * 0.3, plinthH + h + 3.0, -l * 0.25);
+      houseRoofs.push(chimPot);
+
+      if (hasBalcony) {
+        const balcDeck = new THREE.BoxGeometry(2.4, 0.15, 1.2);
+        balcDeck.translate(0, plinthH + 2.7, l * 0.5 + 0.6);
+        houseWood.push(balcDeck);
+
+        const balcRail = new THREE.BoxGeometry(2.4, 0.75, 0.08);
+        balcRail.translate(0, plinthH + 3.1, l * 0.5 + 1.15);
+        houseWood.push(balcRail);
+
+        const planter = new THREE.BoxGeometry(2.0, 0.25, 0.35);
+        planter.translate(0, plinthH + 2.8, l * 0.5 + 0.85);
+        houseWood.push(planter);
+      }
+
+      if (hasAnnex) {
+        const aw = w * 0.65;
+        const al = l * 0.55;
+        const ah = h * 0.75;
+        const annexWall = new THREE.BoxGeometry(aw, ah, al);
+        annexWall.translate(w * 0.5 + aw * 0.45, plinthH + ah * 0.5, 0);
+        houseWalls.push(annexWall);
+
+        const aSlope = Math.atan2(gableH * 0.7, aw);
+        const annexRoof = new THREE.BoxGeometry(aw * 1.15, 0.18, al + 0.6);
+        annexRoof.rotateZ(aSlope);
+        annexRoof.translate(w * 0.5 + aw * 0.5, plinthH + ah + 0.4, 0);
+        houseRoofs.push(annexRoof);
+      }
+
+      const mergeAndAdd = (geos: THREE.BufferGeometry[], target: THREE.BufferGeometry[]): void => {
+        const m = mergeGeometries(geos.map(cleanGeo), false);
+        geos.forEach((g) => g.dispose());
+        if (m) {
+          m.rotateY(yaw);
+          m.translate(cx, cy, cz);
+          target.push(m);
+        }
+      };
+
+      mergeAndAdd(houseWalls, wallParts);
+      mergeAndAdd(houseRoofs, roofParts);
+      mergeAndAdd(houseWood, woodParts);
+      mergeAndAdd(houseStone, stoneParts);
+    };
+
+    // 4. Whitewashed Chalk Windmill Builder (4-Blade Rotating Sails & Terracotta Cone Roof)
+    const makeChalkWindmill = (
+      cx: number,
+      cy: number,
+      cz: number,
+      baseRadius = 4.0,
+      towerHeight = 14.5,
+    ): void => {
+      const chalkGeos: THREE.BufferGeometry[] = [];
+      const roofGeos: THREE.BufferGeometry[] = [];
+      const woodGeos: THREE.BufferGeometry[] = [];
+      const brassGeos: THREE.BufferGeometry[] = [];
+
+      const plinth = new THREE.CylinderGeometry(baseRadius * 1.15, baseRadius * 1.25, 1.4, 12);
+      plinth.translate(0, 0.7, 0);
+      chalkGeos.push(plinth);
+
+      const tower = new THREE.CylinderGeometry(baseRadius * 0.72, baseRadius, towerHeight, 12);
+      tower.translate(0, towerHeight * 0.5 + 0.7, 0);
+      chalkGeos.push(tower);
+
+      const balcony = new THREE.CylinderGeometry(baseRadius * 0.98, baseRadius * 0.98, 0.35, 12);
+      balcony.translate(0, towerHeight * 0.68 + 0.7, 0);
+      woodGeos.push(balcony);
+
+      const railing = new THREE.CylinderGeometry(baseRadius * 0.98, baseRadius * 0.98, 0.8, 12, 1, true);
+      railing.translate(0, towerHeight * 0.68 + 1.1, 0);
+      woodGeos.push(railing);
+
+      const roof = new THREE.ConeGeometry(baseRadius * 0.88, 4.8, 12);
+      roof.translate(0, towerHeight + 3.1, 0);
+      roofGeos.push(roof);
+
+      const finial = new THREE.SphereGeometry(0.42, 8, 8);
+      finial.translate(0, towerHeight + 5.6, 0);
+      const vaneRod = new THREE.CylinderGeometry(0.05, 0.05, 1.6, 6);
+      vaneRod.translate(0, towerHeight + 6.3, 0);
+      brassGeos.push(finial, vaneRod);
+
+      const mChalk = mergeGeometries(chalkGeos.map(cleanGeo), false);
+      chalkGeos.forEach((p) => p.dispose());
+      if (mChalk) {
+        mChalk.translate(cx, cy, cz);
+        chalkParts.push(mChalk);
+      }
+
+      const mRoof = mergeGeometries(roofGeos.map(cleanGeo), false);
+      roofGeos.forEach((p) => p.dispose());
+      if (mRoof) {
+        mRoof.translate(cx, cy, cz);
+        roofParts.push(mRoof);
+      }
+
+      const mWood = mergeGeometries(woodGeos.map(cleanGeo), false);
+      woodGeos.forEach((p) => p.dispose());
+      if (mWood) {
+        mWood.translate(cx, cy, cz);
+        woodParts.push(mWood);
+      }
+
+      const mBrass = mergeGeometries(brassGeos.map(cleanGeo), false);
+      brassGeos.forEach((p) => p.dispose());
+      if (mBrass) {
+        mBrass.translate(cx, cy, cz);
+        brassParts.push(mBrass);
+      }
+
+      // Dynamic 4-blade rotor
+      const rotorGroup = new THREE.Group();
+      rotorGroup.name = 'chalk-windmill-rotor';
+      rotorGroup.position.set(cx, cy + towerHeight + 1.4, cz + baseRadius * 0.76);
+
+      const rotorParts: THREE.BufferGeometry[] = [];
+      const hub = new THREE.CylinderGeometry(0.65, 0.65, 0.8, 8);
+      hub.rotateX(Math.PI / 2);
+      rotorParts.push(hub);
+
+      for (let b = 0; b < 4; b++) {
+        const bladeAngle = (b / 4) * Math.PI * 2;
+        const spar = new THREE.BoxGeometry(0.22, 0.22, 9.2);
+        spar.rotateX(Math.PI / 2);
+        spar.rotateZ(bladeAngle);
+        const sail = new THREE.PlaneGeometry(1.85, 6.8);
+        sail.rotateZ(bladeAngle);
+        sail.translate(
+          Math.cos(bladeAngle + Math.PI / 2) * 0.88 + Math.cos(bladeAngle) * 4.6,
+          Math.sin(bladeAngle + Math.PI / 2) * 0.88 + Math.sin(bladeAngle) * 4.6,
+          0.06,
+        );
+        rotorParts.push(spar, sail);
+      }
+      const mergedRotor = mergeGeometries(rotorParts.map(cleanGeo), false);
+      rotorParts.forEach((p) => p.dispose());
+      if (mergedRotor) {
+        const rotorMat = createToonMaterial({ color: PALETTE.gliderCanvas, shadowTint: PALETTE.boatWoodDark });
+        const rotorMesh = new THREE.Mesh(mergedRotor, rotorMat);
+        addOutline(rotorMesh, { width: 0.75 });
+        markInk(rotorMesh);
+        rotorGroup.add(rotorMesh);
+        this.object.add(rotorGroup);
+        this.sceneryWindmillRotors.push(rotorGroup);
+      }
+    };
+
+    // 5. Vintage Handcrafted Teak Launch Pier & Mooring Dock (复古手作老柚木出航小栈桥)
+    // 5. Vintage Handcrafted Teak Launch Pier & Mooring Dock (复古手作老柚木出航小栈桥)
+    const makeGliderLaunchPier = (
+      width = 13.0,
+      startZ = -30.0,
+      endZ = -17.0,
+    ): void => {
+      const woodGeos: THREE.BufferGeometry[] = [];
+      const darkWoodGeos: THREE.BufferGeometry[] = [];
+      const brassGeos: THREE.BufferGeometry[] = [];
+
+      const totalLength = endZ - startZ; // 13m
+      const pileSpacing = 4.0;
+      const pileCount = Math.floor(totalLength / pileSpacing);
+
+      // Helper to compute dock top height at station z
+      const dockYAt = (z: number): { y: number; pitch: number } => {
+        const taperDist = 4.5;
+        if (z > endZ - taperDist) {
+          const rf = (z - (endZ - taperDist)) / taperDist;
+          return { y: 0.38 - rf * 0.56, pitch: rf * 0.12 }; // slopes from 0.38m to -0.18m into the sea
+        }
+        return { y: 0.38, pitch: 0 };
+      };
+
+      // 1. Heavy timber pilings, crossbeams & support framework underneath
+      for (let p = 0; p <= pileCount; p++) {
+        const lz = startZ + p * pileSpacing;
+        const { y: deckY } = dockYAt(lz);
+        for (const sx of [-width * 0.48, width * 0.48]) {
+          const pile = new THREE.CylinderGeometry(0.32, 0.40, 4.5, 8);
+          pile.translate(sx, deckY - 2.3, lz);
+          darkWoodGeos.push(pile);
+
+          // Carved wooden pile cap collar
+          const collar = new THREE.CylinderGeometry(0.38, 0.38, 0.16, 8);
+          collar.translate(sx, deckY - 0.05, lz);
+          woodGeos.push(collar);
+        }
+        // Crossbeam strictly below the deck planks
+        const crossBeam = new THREE.BoxGeometry(width + 0.3, 0.22, 0.26);
+        crossBeam.translate(0, deckY - 0.16, lz);
+        darkWoodGeos.push(crossBeam);
+
+        // Diagonal wooden bracing
+        for (const side of [-1, 1]) {
+          const brace = new THREE.BoxGeometry(0.18, 0.18, 2.4);
+          brace.rotateX(side * 0.38);
+          brace.translate(side * (width * 0.32), deckY - 0.8, lz);
+          darkWoodGeos.push(brace);
+        }
+      }
+
+      // 2. Individual warm old teak deck planks (#8B5A2B) with physical board separation
+      const plankW = 0.34;
+      const plankCount = Math.floor(totalLength / plankW);
+      for (let i = 0; i < plankCount; i++) {
+        const lz = startZ + (i + 0.5) * (totalLength / plankCount);
+        const { y: rampY, pitch: rampPitch } = dockYAt(lz);
+        const plank = new THREE.BoxGeometry(width, 0.08, plankW * 0.88);
+        if (rampPitch !== 0) plank.rotateX(rampPitch);
+        plank.translate(0, rampY, lz);
+        woodGeos.push(plank);
+
+        // Side curb segments that follow the plank slope perfectly
+        for (const side of [-1, 1]) {
+          const sx = side * (width * 0.5 - 0.15);
+          const curbSeg = new THREE.BoxGeometry(0.24, 0.12, plankW * 0.95);
+          if (rampPitch !== 0) curbSeg.rotateX(rampPitch);
+          curbSeg.translate(sx, rampY + 0.08, lz);
+          woodGeos.push(curbSeg);
+        }
+      }
+
+      // 3. Vintage Brass Mooring Bollards (#C8963E) at landward base only
+      const bollardZ = [startZ + 1.5, startZ + 5.5];
+      for (const bz of bollardZ) {
+        const { y: by } = dockYAt(bz);
+        for (const side of [-1, 1]) {
+          const bx = side * (width * 0.5 - 0.20);
+          // Base plate
+          const basePlate = new THREE.CylinderGeometry(0.26, 0.30, 0.06, 8);
+          basePlate.translate(bx, by + 0.12, bz);
+          brassGeos.push(basePlate);
+
+          // Vertical post
+          const post = new THREE.CylinderGeometry(0.14, 0.18, 0.32, 8);
+          post.translate(bx, by + 0.28, bz);
+          brassGeos.push(post);
+
+          // Mooring cross-pin (T-peg)
+          const crossPin = new THREE.CylinderGeometry(0.045, 0.045, 0.42, 6);
+          crossPin.rotateZ(Math.PI / 2);
+          crossPin.translate(bx, by + 0.38, bz);
+          brassGeos.push(crossPin);
+
+          // Rounded brass bollard cap
+          const cap = new THREE.SphereGeometry(0.16, 8, 6);
+          cap.translate(bx, by + 0.48, bz);
+          brassGeos.push(cap);
+        }
+      }
+
+      // 4. Shore base lantern posts & brass nautical lanterns (landward end only)
+      const shoreZ = startZ + 0.8;
+      const { y: sy } = dockYAt(shoreZ);
+      for (const side of [-1, 1]) {
+        const lx = side * (width * 0.5 + 0.18);
+        const post = new THREE.BoxGeometry(0.22, 1.2, 0.22);
+        post.translate(lx, sy + 0.65, shoreZ);
+        woodGeos.push(post);
+
+        // Brass nautical lantern
+        const lanternBody = new THREE.CylinderGeometry(0.14, 0.17, 0.34, 6);
+        lanternBody.translate(lx, sy + 1.35, shoreZ);
+        brassGeos.push(lanternBody);
+
+        const lanternCap = new THREE.ConeGeometry(0.20, 0.16, 6);
+        lanternCap.translate(lx, sy + 1.58, shoreZ);
+        brassGeos.push(lanternCap);
+      }
+
+      const mWood = mergeGeometries(woodGeos.map(cleanGeo), false);
+      woodGeos.forEach((p) => p.dispose());
+      if (mWood) woodParts.push(mWood);
+
+      const mDarkWood = mergeGeometries(darkWoodGeos.map(cleanGeo), false);
+      darkWoodGeos.forEach((p) => p.dispose());
+      if (mDarkWood) woodParts.push(mDarkWood);
+
+      const mBrass = mergeGeometries(brassGeos.map(cleanGeo), false);
+      brassGeos.forEach((p) => p.dispose());
+      if (mBrass) brassParts.push(mBrass);
+    };
+
+    // 6. Procedural Karst Sea Stack Generator
+    const makeSeaStack = (
+      cx: number,
+      cz: number,
+      radiusBase: number,
+      radiusTop: number,
+      height: number,
+      segments = 12,
+      seed = 0,
+    ): void => {
+      const tiers = [
+        { y: -2.5, r: radiusBase * 1.2 },
+        { y: 0.4, r: radiusBase * 0.72 },
+        { y: 1.8, r: radiusBase * 0.88 },
+        { y: height * 0.45, r: THREE.MathUtils.lerp(radiusBase, radiusTop, 0.45) * 1.05 },
+        { y: height * 0.85, r: radiusTop * 1.12 },
+        { y: height, r: radiusTop * 0.92 },
+      ];
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+
+      for (let l = 0; l < tiers.length; l++) {
+        const t = tiers[l];
+        for (let i = 0; i < segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const noise = Math.sin(angle * 4 + seed) * 0.14 + Math.cos(angle * 2 + seed * 1.5) * 0.08;
+          const r = t.r * (1 + noise);
+          pos.push(cx + Math.cos(angle) * r, t.y, cz + Math.sin(angle) * r);
+          uvs.push(i / segments, l / (tiers.length - 1));
+        }
+      }
+
+      for (let l = 0; l < tiers.length - 1; l++) {
+        for (let i = 0; i < segments; i++) {
+          const nextI = (i + 1) % segments;
+          const a = l * segments + i;
+          const b = l * segments + nextI;
+          const c = (l + 1) * segments + i;
+          const d = (l + 1) * segments + nextI;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+
+      const topCenterIdx = pos.length / 3;
+      pos.push(cx, height, cz);
+      uvs.push(0.5, 0.5);
+      const topLayerStart = (tiers.length - 1) * segments;
+      for (let i = 0; i < segments; i++) {
+        const nextI = (i + 1) % segments;
+        indices.push(topCenterIdx, topLayerStart + i, topLayerStart + nextI);
+      }
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      rockGeo.setIndex(indices);
+      rockGeo.computeVertexNormals();
+      chalkParts.push(rockGeo);
+
+      const grassPos: number[] = [cx, height + 0.08, cz];
+      const grassUvs: number[] = [0.5, 0.5];
+      const grassIdx: number[] = [];
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const noise = Math.sin(angle * 4 + seed) * 0.14;
+        const r = radiusTop * 0.95 * (1 + noise);
+        grassPos.push(cx + Math.cos(angle) * r, height + 0.08, cz + Math.sin(angle) * r);
+        grassUvs.push(Math.cos(angle) * 0.5 + 0.5, Math.sin(angle) * 0.5 + 0.5);
+        const nextI = (i + 1) % segments;
+        grassIdx.push(0, i + 1, nextI + 1);
+      }
+      const grassGeo = new THREE.BufferGeometry();
+      grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassPos, 3));
+      grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUvs, 2));
+      grassGeo.setIndex(grassIdx);
+      grassGeo.computeVertexNormals();
+      grassParts.push(grassGeo);
+    };
+
+    // 7. Procedural Natural Sea Arch Generator
+    const makeNaturalSeaArch = (
+      cx: number,
+      cz: number,
+      heading: number,
+      span: number,
+      height: number,
+      archHeight: number,
+      thickness: number,
+      segments = 18,
+    ): void => {
+      const halfSpan = span * 0.5;
+      const halfThick = thickness * 0.5;
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+
+      const cosH = Math.cos(heading);
+      const sinH = Math.sin(heading);
+      const transform = (lx: number, ly: number, lz: number): [number, number, number] => [
+        cx + lx * cosH - lz * sinH,
+        ly,
+        cz + lx * sinH + lz * cosH,
+      ];
+
+      const outerProfile: [number, number][] = [];
+      const innerProfile: [number, number][] = [];
+
+      for (let i = 0; i <= segments; i++) {
+        const f = i / segments;
+        const angle = f * Math.PI;
+        const ox = -Math.cos(angle) * halfSpan;
+        const oy = Math.sin(angle) * (height + 2.5) - 2.5;
+        outerProfile.push([ox, Math.max(-2.5, oy)]);
+
+        const innerSpan = halfSpan * 0.68;
+        const ix = -Math.cos(angle) * innerSpan;
+        const iy = Math.sin(angle) * (archHeight + 2.5) - 2.5;
+        innerProfile.push([ix, Math.max(-2.5, iy)]);
+      }
+
+      for (const zSide of [halfThick, -halfThick]) {
+        const baseV = pos.length / 3;
+        for (let i = 0; i <= segments; i++) {
+          const [ox, oy] = outerProfile[i];
+          const [wx, wy, wz] = transform(ox, oy, zSide);
+          pos.push(wx, wy, wz);
+          uvs.push(i / segments, 1.0);
+
+          const [ix, iy] = innerProfile[i];
+          const [iwx, iwy, iwz] = transform(ix, iy, zSide);
+          pos.push(iwx, iwy, iwz);
+          uvs.push(i / segments, 0.0);
+        }
+        for (let i = 0; i < segments; i++) {
+          const a = baseV + i * 2;
+          const b = baseV + i * 2 + 1;
+          const c = baseV + (i + 1) * 2;
+          const d = baseV + (i + 1) * 2 + 1;
+          if (zSide > 0) indices.push(a, c, b, b, c, d);
+          else indices.push(a, b, c, b, d, c);
+        }
+      }
+
+      const outerRimBase = pos.length / 3;
+      for (let i = 0; i <= segments; i++) {
+        const [ox, oy] = outerProfile[i];
+        const [fx, fy, fz] = transform(ox, oy, halfThick);
+        const [bx, by, bz] = transform(ox, oy, -halfThick);
+        pos.push(fx, fy, fz, bx, by, bz);
+        uvs.push(i / segments, 1, i / segments, 0);
+      }
+      for (let i = 0; i < segments; i++) {
+        const a = outerRimBase + i * 2;
+        const b = outerRimBase + i * 2 + 1;
+        const c = outerRimBase + (i + 1) * 2;
+        const d = outerRimBase + (i + 1) * 2 + 1;
+        indices.push(a, b, c, b, d, c);
+      }
+
+      const innerRimBase = pos.length / 3;
+      for (let i = 0; i <= segments; i++) {
+        const [ix, iy] = innerProfile[i];
+        const [fx, fy, fz] = transform(ix, iy, halfThick);
+        const [bx, by, bz] = transform(ix, iy, -halfThick);
+        pos.push(fx, fy, fz, bx, by, bz);
+        uvs.push(i / segments, 1, i / segments, 0);
+      }
+      for (let i = 0; i < segments; i++) {
+        const a = innerRimBase + i * 2;
+        const b = innerRimBase + i * 2 + 1;
+        const c = innerRimBase + (i + 1) * 2;
+        const d = innerRimBase + (i + 1) * 2 + 1;
+        indices.push(a, c, b, b, c, d);
+      }
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      rockGeo.setIndex(indices);
+      rockGeo.computeVertexNormals();
+      chalkParts.push(rockGeo);
+
+      // Top grass crest
+      const grassPos: number[] = [];
+      const grassUvs: number[] = [];
+      const grassIdx: number[] = [];
+      const topCrestStart = Math.floor(segments * 0.28);
+      const topCrestEnd = Math.ceil(segments * 0.72);
+      for (let i = topCrestStart; i <= topCrestEnd; i++) {
+        const [ox, oy] = outerProfile[i];
+        const [fx, fy, fz] = transform(ox, oy + 0.12, halfThick * 0.88);
+        const [bx, by, bz] = transform(ox, oy + 0.12, -halfThick * 0.88);
+        grassPos.push(fx, fy, fz, bx, by, bz);
+        grassUvs.push((i - topCrestStart) / (topCrestEnd - topCrestStart), 1, (i - topCrestStart) / (topCrestEnd - topCrestStart), 0);
+      }
+      const crestCount = topCrestEnd - topCrestStart;
+      for (let i = 0; i < crestCount; i++) {
+        const a = i * 2;
+        const b = i * 2 + 1;
+        const c = (i + 1) * 2;
+        const d = (i + 1) * 2 + 1;
+        grassIdx.push(a, b, c, b, d, c);
+      }
+      const grassGeo = new THREE.BufferGeometry();
+      grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassPos, 3));
+      grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUvs, 2));
+      grassGeo.setIndex(grassIdx);
+      grassGeo.computeVertexNormals();
+      grassParts.push(grassGeo);
+    };
+
+    // 8. Procedural Laputa Floating Sky Island Generator (Stratified Inverted Rock Spire, Overhanging Grass, Ivy & Satellite Islets)
+    const makeLaputaFloatingIsland = (
+      cx: number,
+      cy: number,
+      cz: number,
+      radius: number,
+      depth: number,
+      segments = 16,
+      seed = 0,
+      hasPavedRuins = true,
+    ): void => {
+      const tiers = [
+        { y: 0, r: radius * 1.0 },
+        { y: -depth * 0.18, r: radius * 0.92 },
+        { y: -depth * 0.42, r: radius * 0.68 },
+        { y: -depth * 0.70, r: radius * 0.38 },
+        { y: -depth * 0.92, r: radius * 0.14 },
+      ];
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+
+      for (let l = 0; l < tiers.length; l++) {
+        const t = tiers[l];
+        for (let i = 0; i < segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const noise = Math.sin(angle * 4 + seed * 2.3) * 0.16 + Math.cos(angle * 7 + seed * 1.7) * 0.08;
+          const r = t.r * (1 + noise);
+          pos.push(cx + Math.cos(angle) * r, cy + t.y, cz + Math.sin(angle) * r);
+          uvs.push(i / segments, l / tiers.length);
+        }
+      }
+
+      for (let l = 0; l < tiers.length - 1; l++) {
+        for (let i = 0; i < segments; i++) {
+          const nextI = (i + 1) % segments;
+          const a = l * segments + i;
+          const b = l * segments + nextI;
+          const c = (l + 1) * segments + i;
+          const d = (l + 1) * segments + nextI;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+
+      // Stalactite rocky tip
+      const tipIdx = pos.length / 3;
+      pos.push(cx + Math.sin(seed * 3.1) * 1.5, cy - depth, cz + Math.cos(seed * 3.1) * 1.5);
+      uvs.push(0.5, 1.0);
+      const lastTierStart = (tiers.length - 1) * segments;
+      for (let i = 0; i < segments; i++) {
+        const nextI = (i + 1) % segments;
+        indices.push(lastTierStart + i, tipIdx, lastTierStart + nextI);
+      }
+
+      // Top center cap
+      const topCenterIdx = pos.length / 3;
+      pos.push(cx, cy, cz);
+      uvs.push(0.5, 0.5);
+      for (let i = 0; i < segments; i++) {
+        const nextI = (i + 1) % segments;
+        indices.push(topCenterIdx, i, nextI);
+      }
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      rockGeo.setIndex(indices);
+      rockGeo.computeVertexNormals();
+      chalkParts.push(rockGeo);
+
+      // Top Emerald Grass Plateau with terraced overhanging lip
+      const grassPos: number[] = [cx, cy + 0.16, cz];
+      const grassUvs: number[] = [0.5, 0.5];
+      const grassIdx: number[] = [];
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const noise = Math.sin(angle * 4 + seed * 2.3) * 0.16;
+        const r = radius * 1.02 * (1 + noise);
+        grassPos.push(cx + Math.cos(angle) * r, cy + 0.16, cz + Math.sin(angle) * r);
+        grassUvs.push(Math.cos(angle) * 0.5 + 0.5, Math.sin(angle) * 0.5 + 0.5);
+        const nextI = (i + 1) % segments;
+        grassIdx.push(0, i + 1, nextI + 1);
+      }
+      const grassGeo = new THREE.BufferGeometry();
+      grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassPos, 3));
+      grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUvs, 2));
+      grassGeo.setIndex(grassIdx);
+      grassGeo.computeVertexNormals();
+      grassParts.push(grassGeo);
+
+      // Hanging Ivy tendrils & moss along the underbelly perimeter
+      for (let i = 0; i < 6; i++) {
+        const vineAngle = (i / 6) * Math.PI * 2 + seed * 0.8;
+        const vineNoise = Math.sin(vineAngle * 4 + seed * 2.3) * 0.16;
+        const vineR = radius * 0.88 * (1 + vineNoise);
+        const vx = cx + Math.cos(vineAngle) * vineR;
+        const vz = cz + Math.sin(vineAngle) * vineR;
+        const vineLen = 4.5 + (i % 3) * 2.5;
+        const vineMesh = new THREE.CylinderGeometry(0.12, 0.04, vineLen, 5);
+        vineMesh.translate(vx, cy - vineLen * 0.5, vz);
+        foliageParts.push(vineMesh);
+      }
+
+      // Ancient Marble Paved Ruin Flooring
+      if (hasPavedRuins) {
+        const ruinPlinth = new THREE.CylinderGeometry(radius * 0.62, radius * 0.65, 0.45, 12);
+        ruinPlinth.translate(cx, cy + 0.25, cz);
+        stoneParts.push(ruinPlinth);
+
+        const innerDais = new THREE.CylinderGeometry(radius * 0.42, radius * 0.44, 0.35, 10);
+        innerDais.translate(cx, cy + 0.60, cz);
+        stoneParts.push(innerDais);
+      }
+
+      // Hanging Underbelly Stalactites
+      for (let s = 0; s < 4; s++) {
+        const sAngle = (s / 4) * Math.PI * 2 + seed + 0.4;
+        const sDist = radius * 0.35 + (s % 2) * (radius * 0.2);
+        const sx = cx + Math.cos(sAngle) * sDist;
+        const sz = cz + Math.sin(sAngle) * sDist;
+        const sHeight = 4.0 + (s % 3) * 2.2;
+        const stalactite = new THREE.ConeGeometry(0.85, sHeight, 6);
+        stalactite.rotateX(Math.PI);
+        stalactite.translate(sx, cy - depth * 0.45 - sHeight * 0.5, sz);
+        stoneParts.push(stalactite);
+      }
+
+      // Orbiting Satellite Mini-Islets (2~3 mini floating rock spires nearby)
+      const satCount = 3;
+      for (let k = 0; k < satCount; k++) {
+        const satAngle = (k / satCount) * Math.PI * 2 + seed * 1.5;
+        const satDist = radius * 1.55 + (k % 2) * 8.0;
+        const satX = cx + Math.cos(satAngle) * satDist;
+        const satY = cy + (Math.sin(k * 2.4 + seed) * 4.5);
+        const satZ = cz + Math.sin(satAngle) * satDist;
+        const satR = 3.2 + (k % 2) * 1.8;
+        const satD = 5.5 + (k % 2) * 3.0;
+
+        const satCone = new THREE.ConeGeometry(satR, satD, 7);
+        satCone.rotateX(Math.PI);
+        satCone.translate(satX, satY - satD * 0.5, satZ);
+        chalkParts.push(satCone);
+
+        const satGrass = new THREE.CylinderGeometry(satR * 0.95, satR, 0.35, 7);
+        satGrass.translate(satX, satY + 0.15, satZ);
+        grassParts.push(satGrass);
+      }
+    };
+
+    // 9. Glider Launch Ramp Builder
+    const makeGliderLaunchRamp = (
+      cx: number,
+      cy: number,
+      cz: number,
+      heading: number,
+      width = 7.5,
+      length = 26.0,
+      slopeDeg = 12.0,
+    ): void => {
+      const woodGeos: THREE.BufferGeometry[] = [];
+      const brassGeos: THREE.BufferGeometry[] = [];
+
+      const slopeRad = (slopeDeg * Math.PI) / 180;
+      const cosS = Math.cos(slopeRad);
+      const sinS = Math.sin(slopeRad);
+
+      const beamW = 0.55;
+      const beamH = 0.85;
+      for (const side of [-1, 1]) {
+        const beam = new THREE.BoxGeometry(beamW, beamH, length);
+        beam.rotateX(slopeRad);
+        beam.translate(side * (width * 0.5 - 0.4), length * 0.5 * sinS, length * 0.5 * cosS);
+        woodGeos.push(beam);
+
+        const strut = new THREE.BoxGeometry(0.42, 0.42, length * 0.75);
+        strut.rotateX(-0.52);
+        strut.translate(side * (width * 0.5 - 0.4), length * 0.35 * sinS - 4.5, length * 0.4 * cosS);
+        woodGeos.push(strut);
+
+        const rail = new THREE.BoxGeometry(0.18, 0.85, length);
+        rail.rotateX(slopeRad);
+        rail.translate(side * (width * 0.5 + 0.1), length * 0.5 * sinS + 0.6, length * 0.5 * cosS);
+        woodGeos.push(rail);
+
+        for (let p = 0; p < 3; p++) {
+          const bracket = new THREE.BoxGeometry(0.24, 0.32, 0.45);
+          bracket.translate(side * (width * 0.5 + 0.1), length * (p / 2) * sinS + 0.4, length * (p / 2) * cosS);
+          brassGeos.push(bracket);
+        }
+      }
+
+      const plankCount = 20;
+      for (let i = 0; i <= plankCount; i++) {
+        const f = i / plankCount;
+        const lz = f * length;
+        const ly = lz * Math.tan(slopeRad);
+        const plank = new THREE.BoxGeometry(width, 0.14, (length / plankCount) * 0.88);
+        plank.rotateX(slopeRad);
+        plank.translate(0, ly + 0.45, lz * cosS);
+        woodGeos.push(plank);
+      }
+
+      const lip = new THREE.BoxGeometry(width + 0.4, 0.22, 0.35);
+      lip.translate(0, length * sinS + 0.45, length * cosS);
+      brassGeos.push(lip);
+
+      const mergedWood = mergeGeometries(woodGeos.map(cleanGeo), false);
+      woodGeos.forEach((p) => p.dispose());
+      if (mergedWood) {
+        mergedWood.rotateY(heading);
+        mergedWood.translate(cx, cy, cz);
+        woodParts.push(mergedWood);
+      }
+
+      const mergedBrass = mergeGeometries(brassGeos.map(cleanGeo), false);
+      brassGeos.forEach((p) => p.dispose());
+      if (mergedBrass) {
+        mergedBrass.rotateY(heading);
+        mergedBrass.translate(cx, cy, cz);
+        brassParts.push(mergedBrass);
+      }
+    };
+
+    // 10. Ancient Watchtower Builder
+    const makeAncientWatchtower = (
+      cx: number,
+      cy: number,
+      cz: number,
+      baseRadius = 3.2,
+      height = 18.0,
+    ): void => {
+      const stoneGeos: THREE.BufferGeometry[] = [];
+      const brassGeos: THREE.BufferGeometry[] = [];
+
+      const plinth = new THREE.CylinderGeometry(baseRadius * 1.25, baseRadius * 1.35, 1.8, 8);
+      plinth.translate(0, 0.9, 0);
+      stoneGeos.push(plinth);
+
+      const shaft = new THREE.CylinderGeometry(baseRadius * 0.85, baseRadius * 1.1, height - 3.5, 8);
+      shaft.translate(0, (height - 3.5) * 0.5 + 1.8, 0);
+      stoneGeos.push(shaft);
+
+      const parapet = new THREE.CylinderGeometry(baseRadius * 1.2, baseRadius * 0.95, 1.6, 8);
+      parapet.translate(0, height - 1.0, 0);
+      stoneGeos.push(parapet);
+
+      const roof = new THREE.ConeGeometry(baseRadius * 1.25, 4.5, 8);
+      roof.translate(0, height + 2.2, 0);
+      stoneGeos.push(roof);
+
+      const finial = new THREE.CylinderGeometry(0.06, 0.06, 2.4, 6);
+      finial.translate(0, height + 5.2, 0);
+      const finialBall = new THREE.SphereGeometry(0.32, 8, 8);
+      finialBall.translate(0, height + 4.8, 0);
+      brassGeos.push(finial, finialBall);
+
+      const mergedStone = mergeGeometries(stoneGeos.map(cleanGeo), false);
+      stoneGeos.forEach((p) => p.dispose());
+      if (mergedStone) {
+        mergedStone.translate(cx, cy, cz);
+        stoneParts.push(mergedStone);
+      }
+
+      const mergedBrass = mergeGeometries(brassGeos.map(cleanGeo), false);
+      brassGeos.forEach((p) => p.dispose());
+      if (mergedBrass) {
+        mergedBrass.translate(cx, cy, cz);
+        brassParts.push(mergedBrass);
+      }
+    };
+
+    // 11. Suspension Bridge Builder
+    const makeSuspensionBridge = (
+      p1: THREE.Vector3,
+      p2: THREE.Vector3,
+      width = 2.8,
+      sag = 3.2,
+      plankCount = 28,
+    ): void => {
+      const woodGeos: THREE.BufferGeometry[] = [];
+      const stoneGeos: THREE.BufferGeometry[] = [];
+
+      for (const p of [p1, p2]) {
+        const abutment = new THREE.BoxGeometry(width + 1.8, 3.5, 3.5);
+        abutment.translate(p.x, p.y - 1.5, p.z);
+        stoneGeos.push(abutment);
+      }
+
+      const dir = p2.clone().sub(p1);
+      const length = dir.length();
+      const forward = dir.clone().normalize();
+      const right = new THREE.Vector3(forward.z, 0, -forward.x).normalize();
+      const yaw = Math.atan2(-forward.x, -forward.z);
+
+      for (let i = 0; i <= plankCount; i++) {
+        const f = i / plankCount;
+        const pt = p1.clone().lerp(p2, f);
+        pt.y += Math.sin(f * Math.PI) * -sag;
+
+        const plank = new THREE.BoxGeometry(width, 0.14, (length / plankCount) * 0.85);
+        plank.rotateY(yaw);
+        plank.translate(pt.x, pt.y, pt.z);
+        woodGeos.push(plank);
+      }
+
+      for (const side of [-1, 1]) {
+        const cablePts: THREE.Vector3[] = [];
+        for (let s = 0; s <= 20; s++) {
+          const f = s / 20;
+          const pt = p1.clone().lerp(p2, f);
+          pt.y += Math.sin(f * Math.PI) * -sag + 1.2;
+          pt.addScaledVector(right, side * (width * 0.5));
+          cablePts.push(pt);
+        }
+        const cableCurve = new THREE.CatmullRomCurve3(cablePts, false, 'centripetal');
+        const cableTube = new THREE.TubeGeometry(cableCurve, 20, 0.045, 5, false);
+        woodGeos.push(cableTube);
+      }
+
+      const mergedWood = mergeGeometries(woodGeos.map(cleanGeo), false);
+      woodGeos.forEach((p) => p.dispose());
+      if (mergedWood) woodParts.push(mergedWood);
+
+      const mergedStone = mergeGeometries(stoneGeos.map(cleanGeo), false);
+      stoneGeos.forEach((p) => p.dispose());
+      if (mergedStone) stoneParts.push(mergedStone);
+    };
+
+    // 12. Ancient Colonnade Ruin Builder
+    const makeAncientColonnade = (
+      p1: THREE.Vector3,
+      p2: THREE.Vector3,
+      columnRadius = 0.55,
+      columnHeight = 5.5,
+      count = 6,
+    ): void => {
+      const parts: THREE.BufferGeometry[] = [];
+      const dir = p2.clone().sub(p1);
+      const length = dir.length();
+      const forward = dir.clone().normalize();
+      const yaw = Math.atan2(-forward.x, -forward.z);
+
+      const base = new THREE.BoxGeometry(columnRadius * 3.5, 0.45, length + 2.0);
+      base.rotateY(yaw);
+      const mid = p1.clone().add(p2).multiplyScalar(0.5);
+      base.translate(mid.x, mid.y + 0.225, mid.z);
+      parts.push(base);
+
+      for (let i = 0; i < count; i++) {
+        const f = i / (count - 1);
+        const pt = p1.clone().lerp(p2, f);
+
+        const col = new THREE.CylinderGeometry(columnRadius * 0.85, columnRadius, columnHeight, 10);
+        col.translate(pt.x, pt.y + 0.45 + columnHeight * 0.5, pt.z);
+        parts.push(col);
+
+        const cap = new THREE.BoxGeometry(columnRadius * 2.4, 0.35, columnRadius * 2.4);
+        cap.translate(pt.x, pt.y + 0.45 + columnHeight + 0.175, pt.z);
+        parts.push(cap);
+      }
+
+      const beamLength = (length / (count - 1)) * 0.95;
+      for (let i = 0; i < count - 1; i++) {
+        if (i === 2) continue;
+        const f0 = i / (count - 1);
+        const f1 = (i + 1) / (count - 1);
+        const pt0 = p1.clone().lerp(p2, f0);
+        const pt1 = p1.clone().lerp(p2, f1);
+        const bMid = pt0.clone().add(pt1).multiplyScalar(0.5);
+
+        const beam = new THREE.BoxGeometry(columnRadius * 2.1, 0.65, beamLength);
+        beam.rotateY(yaw);
+        beam.translate(bMid.x, bMid.y + 0.45 + columnHeight + 0.65, bMid.z);
+        parts.push(beam);
+      }
+
+      const merged = mergeGeometries(parts.map(cleanGeo), false);
+      parts.forEach((p) => p.dispose());
+      if (merged) stoneParts.push(merged);
+    };
+
+    // 13. Sky Aqueduct Viaduct Builder (Roman Multi-Arch Flying Conduit with Fly-Through Arches)
+    const makeSkyAqueductViaduct = (
+      p1: THREE.Vector3,
+      p2: THREE.Vector3,
+      archCount = 5,
+      height = 14.0,
+      width = 3.8,
+      isDoubleTier = true,
+    ): void => {
+      const parts: THREE.BufferGeometry[] = [];
+      const dir = p2.clone().sub(p1);
+      const length = dir.length();
+      const forward = dir.clone().normalize();
+      const span = length / archCount;
+      const yaw = Math.atan2(-forward.x, -forward.z);
+
+      // Stone Pier Columns with stepped plinths
+      for (let i = 0; i <= archCount; i++) {
+        const f = i / archCount;
+        const pt = p1.clone().lerp(p2, f);
+
+        const pier = new THREE.BoxGeometry(width * 0.92, height, width * 0.92);
+        pier.rotateY(yaw);
+        pier.translate(pt.x, pt.y - height * 0.5, pt.z);
+        parts.push(pier);
+
+        const capital = new THREE.BoxGeometry(width * 1.25, 0.85, width * 1.25);
+        capital.rotateY(yaw);
+        capital.translate(pt.x, pt.y - 0.42, pt.z);
+        parts.push(capital);
+
+        if (i % 2 === 0) {
+          const ivy = new THREE.CylinderGeometry(0.18, 0.08, height * 0.65, 5);
+          ivy.translate(pt.x + (forward.z * width * 0.5), pt.y - height * 0.35, pt.z - (forward.x * width * 0.5));
+          foliageParts.push(ivy);
+        }
+      }
+
+      // Upper Water Conduit Trough & Stone Parapet Side Walls
+      const conduit = new THREE.BoxGeometry(width, 1.6, length + 2.0);
+      conduit.rotateY(yaw);
+      const mid = p1.clone().add(p2).multiplyScalar(0.5);
+      conduit.translate(mid.x, mid.y + 0.8, mid.z);
+      parts.push(conduit);
+
+      // Left and Right Balustrades / Parapets
+      const rightVec = new THREE.Vector3(forward.z, 0, -forward.x).normalize();
+      for (const side of [-1, 1]) {
+        const parapet = new THREE.BoxGeometry(0.38, 0.95, length + 2.2);
+        parapet.rotateY(yaw);
+        const paraPos = mid.clone().addScaledVector(rightVec, side * (width * 0.5 - 0.19));
+        parapet.translate(paraPos.x, paraPos.y + 1.85, paraPos.z);
+        parts.push(parapet);
+
+        for (let i = 1; i < archCount; i++) {
+          const f = i / archCount;
+          const pt = p1.clone().lerp(p2, f).addScaledVector(rightVec, side * (width * 0.5 + 0.35));
+          const gargoyle = new THREE.CylinderGeometry(0.12, 0.18, 0.75, 6);
+          gargoyle.rotateX(Math.PI / 2);
+          gargoyle.rotateY(yaw);
+          gargoyle.translate(pt.x, pt.y + 0.6, pt.z);
+          brassParts.push(gargoyle);
+        }
+      }
+
+      // Vaulted Arches (Tier 1)
+      for (let i = 0; i < archCount; i++) {
+        const f0 = i / archCount;
+        const f1 = (i + 1) / archCount;
+        const pt0 = p1.clone().lerp(p2, f0);
+        const pt1 = p1.clone().lerp(p2, f1);
+        const bMid = pt0.clone().add(pt1).multiplyScalar(0.5);
+
+        const archRadius = span * 0.44;
+        const arch = new THREE.TorusGeometry(archRadius, width * 0.38, 8, 14, Math.PI);
+        arch.rotateX(Math.PI / 2);
+        arch.rotateY(yaw);
+        arch.translate(bMid.x, bMid.y - archRadius * 0.85, bMid.z);
+        parts.push(arch);
+
+        const keystone = new THREE.BoxGeometry(width * 0.82, 0.95, 0.75);
+        keystone.rotateY(yaw);
+        keystone.translate(bMid.x, bMid.y - 0.2, bMid.z);
+        parts.push(keystone);
+      }
+
+      // Optional Double Tier Lower Vaults
+      if (isDoubleTier && height > 12.0) {
+        const lowerYOffset = -height * 0.52;
+        const lowerBeam = new THREE.BoxGeometry(width * 0.95, 0.75, length);
+        lowerBeam.rotateY(yaw);
+        lowerBeam.translate(mid.x, mid.y + lowerYOffset, mid.z);
+        parts.push(lowerBeam);
+
+        for (let i = 0; i < archCount; i++) {
+          const f0 = i / archCount;
+          const f1 = (i + 1) / archCount;
+          const pt0 = p1.clone().lerp(p2, f0);
+          const pt1 = p1.clone().lerp(p2, f1);
+          const bMid = pt0.clone().add(pt1).multiplyScalar(0.5);
+
+          const lowerArch = new THREE.TorusGeometry(span * 0.40, width * 0.32, 6, 12, Math.PI);
+          lowerArch.rotateX(Math.PI / 2);
+          lowerArch.rotateY(yaw);
+          lowerArch.translate(bMid.x, bMid.y + lowerYOffset - span * 0.32, bMid.z);
+          parts.push(lowerArch);
+        }
+      }
+
+      const merged = mergeGeometries(parts.map(cleanGeo), false);
+      parts.forEach((p) => p.dispose());
+      if (merged) stoneParts.push(merged);
+    };
+
+    // 14. Ancient Sun Temple Rotunda Builder
+    const makeAncientSunTemple = (
+      cx: number,
+      cy: number,
+      cz: number,
+      radius = 10.5,
+      columnCount = 8,
+      columnHeight = 6.5,
+    ): void => {
+      const stoneGeos: THREE.BufferGeometry[] = [];
+      const brassGeos: THREE.BufferGeometry[] = [];
+
+      const step1 = new THREE.CylinderGeometry(radius * 1.35, radius * 1.40, 0.55, 16);
+      step1.translate(cx, cy + 0.275, cz);
+      stoneGeos.push(step1);
+
+      const step2 = new THREE.CylinderGeometry(radius * 1.20, radius * 1.25, 0.50, 16);
+      step2.translate(cx, cy + 0.75, cz);
+      stoneGeos.push(step2);
+
+      const floorDais = new THREE.CylinderGeometry(radius * 1.05, radius * 1.10, 0.45, 16);
+      floorDais.translate(cx, cy + 1.15, cz);
+      stoneGeos.push(floorDais);
+
+      const altarBase = new THREE.CylinderGeometry(2.4, 2.8, 1.4, 10);
+      altarBase.translate(cx, cy + 2.05, cz);
+      stoneGeos.push(altarBase);
+
+      const altarSunDisc = new THREE.CylinderGeometry(1.6, 1.6, 0.25, 12);
+      altarSunDisc.translate(cx, cy + 2.85, cz);
+      brassGeos.push(altarSunDisc);
+
+      for (let i = 0; i < columnCount; i++) {
+        const ang = (i / columnCount) * Math.PI * 2;
+        const colX = cx + Math.cos(ang) * radius;
+        const colZ = cz + Math.sin(ang) * radius;
+
+        const colPlinth = new THREE.BoxGeometry(1.4, 0.4, 1.4);
+        colPlinth.translate(colX, cy + 1.55, colZ);
+        stoneGeos.push(colPlinth);
+
+        const colShaft = new THREE.CylinderGeometry(0.55, 0.65, columnHeight, 10);
+        colShaft.translate(colX, cy + 1.75 + columnHeight * 0.5, colZ);
+        stoneGeos.push(colShaft);
+
+        const colCap = new THREE.BoxGeometry(1.5, 0.55, 1.5);
+        colCap.translate(colX, cy + 1.75 + columnHeight + 0.275, colZ);
+        stoneGeos.push(colCap);
+
+        const ivy = new THREE.CylinderGeometry(0.14, 0.06, columnHeight * 0.85, 5);
+        ivy.translate(colX + 0.35, cy + 1.75 + columnHeight * 0.45, colZ + 0.35);
+        foliageParts.push(ivy);
+      }
+
+      for (let i = 0; i < columnCount; i++) {
+        if (i === 3) continue;
+        const ang0 = (i / columnCount) * Math.PI * 2;
+        const ang1 = ((i + 1) / columnCount) * Math.PI * 2;
+        const pA = new THREE.Vector3(cx + Math.cos(ang0) * radius, cy + 1.75 + columnHeight + 0.85, cz + Math.sin(ang0) * radius);
+        const pB = new THREE.Vector3(cx + Math.cos(ang1) * radius, cy + 1.75 + columnHeight + 0.85, cz + Math.sin(ang1) * radius);
+        const beamMid = pA.clone().add(pB).multiplyScalar(0.5);
+        const beamLen = pA.distanceTo(pB);
+        const beamYaw = Math.atan2(-(pB.x - pA.x), -(pB.z - pA.z));
+
+        const beam = new THREE.BoxGeometry(1.1, 0.85, beamLen + 0.3);
+        beam.rotateY(beamYaw);
+        beam.translate(beamMid.x, beamMid.y, beamMid.z);
+        stoneGeos.push(beam);
+
+        const medallion = new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8);
+        medallion.rotateX(Math.PI / 2);
+        medallion.rotateY(beamYaw);
+        medallion.translate(beamMid.x, beamMid.y, beamMid.z);
+        brassGeos.push(medallion);
+      }
+
+      const mergedStone = mergeGeometries(stoneGeos.map(cleanGeo), false);
+      stoneGeos.forEach((p) => p.dispose());
+      if (mergedStone) stoneParts.push(mergedStone);
+
+      const mergedBrass = mergeGeometries(brassGeos.map(cleanGeo), false);
+      brassGeos.forEach((p) => p.dispose());
+      if (mergedBrass) brassParts.push(mergedBrass);
+    };
+
+    // 15. Ancient Sundial Ruin Builder
+    const makeAncientSundialRuin = (
+      cx: number,
+      cy: number,
+      cz: number,
+      radius = 3.2,
+    ): void => {
+      const stoneGeos: THREE.BufferGeometry[] = [];
+      const brassGeos: THREE.BufferGeometry[] = [];
+
+      const plinth = new THREE.CylinderGeometry(radius * 1.15, radius * 1.3, 0.65, 8);
+      plinth.translate(cx, cy + 0.325, cz);
+      stoneGeos.push(plinth);
+
+      const dialBase = new THREE.CylinderGeometry(radius * 0.95, radius * 1.05, 0.45, 8);
+      dialBase.translate(cx, cy + 0.85, cz);
+      stoneGeos.push(dialBase);
+
+      const dialPlate = new THREE.CylinderGeometry(radius * 0.82, radius * 0.82, 0.22, 16);
+      dialPlate.translate(cx, cy + 1.15, cz);
+      stoneGeos.push(dialPlate);
+
+      const gnomon = new THREE.ConeGeometry(0.18, 2.2, 4);
+      gnomon.rotateX(0.75);
+      gnomon.rotateY(0.42);
+      gnomon.translate(cx, cy + 1.95, cz);
+      brassGeos.push(gnomon);
+
+      const mast = new THREE.CylinderGeometry(0.08, 0.12, 6.5, 6);
+      mast.translate(cx + radius * 0.65, cy + 3.4, cz + radius * 0.65);
+      brassGeos.push(mast);
+
+      const mastFinial = new THREE.SphereGeometry(0.32, 8, 8);
+      mastFinial.translate(cx + radius * 0.65, cy + 6.75, cz + radius * 0.65);
+      brassGeos.push(mastFinial);
+
+      const weathervaneArrow = new THREE.BoxGeometry(0.12, 0.24, 1.8);
+      weathervaneArrow.rotateY(0.65);
+      weathervaneArrow.translate(cx + radius * 0.65, cy + 6.6, cz + radius * 0.65);
+      brassGeos.push(weathervaneArrow);
+
+      const mergedStone = mergeGeometries(stoneGeos.map(cleanGeo), false);
+      stoneGeos.forEach((p) => p.dispose());
+      if (mergedStone) stoneParts.push(mergedStone);
+
+      const mergedBrass = mergeGeometries(brassGeos.map(cleanGeo), false);
+      brassGeos.forEach((p) => p.dispose());
+      if (mergedBrass) brassParts.push(mergedBrass);
+    };
+
+    // 16. Suspended Prayer Pennants Builder (5-Color Solarpunk High-Wind Pennants)
+    const makeSuspendedPrayerPennants = (
+      p1: THREE.Vector3,
+      p2: THREE.Vector3,
+      pennantCount = 8,
+      sag = 2.0,
+    ): void => {
+      const woodGeos: THREE.BufferGeometry[] = [];
+      const dir = p2.clone().sub(p1);
+      const length = dir.length();
+      const forward = dir.clone().normalize();
+      const yaw = Math.atan2(-forward.x, -forward.z);
+
+      const cablePts: THREE.Vector3[] = [];
+      for (let s = 0; s <= 16; s++) {
+        const f = s / 16;
+        const pt = p1.clone().lerp(p2, f);
+        pt.y -= Math.sin(f * Math.PI) * sag;
+        cablePts.push(pt);
+      }
+      const cableCurve = new THREE.CatmullRomCurve3(cablePts, false, 'centripetal');
+      const cableTube = new THREE.TubeGeometry(cableCurve, 16, 0.035, 4, false);
+      woodGeos.push(cableTube);
+
+      for (let i = 1; i < pennantCount; i++) {
+        const f = i / pennantCount;
+        const pt = p1.clone().lerp(p2, f);
+        pt.y -= Math.sin(f * Math.PI) * sag;
+
+        const pennantW = (length / pennantCount) * 0.65;
+        const pennantH = 0.95 + (i % 3) * 0.25;
+        const pennant = new THREE.BoxGeometry(pennantW, pennantH, 0.04);
+        pennant.rotateY(yaw + 0.25 * Math.sin(i * 1.5));
+        pennant.translate(pt.x, pt.y - pennantH * 0.5, pt.z);
+
+        const colorIdx = i % 5;
+        if (colorIdx === 0) coralGoldParts.push(pennant);
+        else if (colorIdx === 1) coralTealParts.push(pennant);
+        else if (colorIdx === 2) coralPinkParts.push(pennant);
+        else if (colorIdx === 3) foliageParts.push(pennant);
+        else wallParts.push(pennant);
+      }
+
+      const mergedWood = mergeGeometries(woodGeos.map(cleanGeo), false);
+      woodGeos.forEach((p) => p.dispose());
+      if (mergedWood) woodParts.push(mergedWood);
+    };
+
+    // 14. Coral Atoll Builder
+    const makeCoralAtoll = (
+      cx: number,
+      cz: number,
+      radius: number,
+      innerRadius: number,
+      lobeCount = 6,
+      seed = 0,
+    ): void => {
+      const segments = 24;
+      const sandPos: number[] = [];
+      const sandUvs: number[] = [];
+      const sandIdx: number[] = [];
+
+      const reefPos: number[] = [];
+      const reefUvs: number[] = [];
+      const reefIdx: number[] = [];
+
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const lobe = 1.0 + Math.sin(angle * lobeCount + seed) * 0.18 + Math.cos(angle * 2 + seed * 1.4) * 0.08;
+        const rOut = radius * lobe;
+        const rIn = innerRadius * (1.0 + Math.cos(angle * lobeCount + seed) * 0.12);
+
+        const ox = cx + Math.cos(angle) * rOut;
+        const oz = cz + Math.sin(angle) * rOut;
+        const ix = cx + Math.cos(angle) * rIn;
+        const iz = cz + Math.sin(angle) * rIn;
+
+        // Submerged natural reef flat beneath clear turquoise ocean
+        sandPos.push(ox, -1.85, oz, ix, -1.45, iz);
+        sandUvs.push(Math.cos(angle) * 0.5 + 0.5, Math.sin(angle) * 0.5 + 0.5, 0.5, 0.5);
+
+        reefPos.push(ox, -1.85, oz, cx + Math.cos(angle) * (rOut * 1.35), -5.2, cz + Math.sin(angle) * (rOut * 1.35));
+        reefUvs.push(i / segments, 1.0, i / segments, 0.0);
+      }
+
+      for (let i = 0; i < segments; i++) {
+        const nextI = (i + 1) % segments;
+        const a = i * 2;
+        const b = i * 2 + 1;
+        const c = nextI * 2;
+        const d = nextI * 2 + 1;
+        sandIdx.push(a, c, b, b, c, d);
+        reefIdx.push(a, c, b, b, c, d);
+      }
+
+      const sandGeo = new THREE.BufferGeometry();
+      sandGeo.setAttribute('position', new THREE.Float32BufferAttribute(sandPos, 3));
+      sandGeo.setAttribute('uv', new THREE.Float32BufferAttribute(sandUvs, 2));
+      sandGeo.setIndex(sandIdx);
+      sandGeo.computeVertexNormals();
+      sandParts.push(sandGeo);
+
+      const reefGeo = new THREE.BufferGeometry();
+      reefGeo.setAttribute('position', new THREE.Float32BufferAttribute(reefPos, 3));
+      reefGeo.setAttribute('uv', new THREE.Float32BufferAttribute(reefUvs, 2));
+      reefGeo.setIndex(reefIdx);
+      reefGeo.computeVertexNormals();
+      coralTealParts.push(reefGeo);
+    };
+
+    // 15. Coral Cluster Builder
+    const makeCoralCluster = (cx: number, cy: number, cz: number, scale = 1.0, type = 0, colorTarget = 'pink'): void => {
+      const parts: THREE.BufferGeometry[] = [];
+      if (type === 0) {
+        for (let b = 0; b < 5; b++) {
+          const angle = (b / 5) * Math.PI * 2 + b * 0.3;
+          const branch = new THREE.CylinderGeometry(0.12 * scale, 0.22 * scale, 1.8 * scale, 6);
+          branch.rotateZ(0.35);
+          branch.rotateY(angle);
+          branch.translate(cx + Math.cos(angle) * 0.4 * scale, cy + 0.9 * scale, cz + Math.sin(angle) * 0.4 * scale);
+          parts.push(branch);
+        }
+      } else {
+        for (let t = 0; t < 3; t++) {
+          const disc = new THREE.CylinderGeometry((1.2 - t * 0.25) * scale, (1.1 - t * 0.25) * scale, 0.18 * scale, 8);
+          disc.rotateZ(t * 0.1);
+          disc.translate(cx + (t - 1) * 0.3 * scale, cy + (0.4 + t * 0.5) * scale, cz + (t % 2) * 0.2 * scale);
+          parts.push(disc);
+        }
+      }
+      const merged = mergeGeometries(parts.map(cleanGeo), false);
+      parts.forEach((p) => p.dispose());
+      if (merged) {
+        if (colorTarget === 'pink') coralPinkParts.push(merged);
+        else if (colorTarget === 'teal') coralTealParts.push(merged);
+        else coralGoldParts.push(merged);
+      }
+    };
+
+    // 16. Foliage Cluster Builder
+    const makeFoliageCluster = (cx: number, cy: number, cz: number, scale = 1.0, count = 4, seed = 0): void => {
+      const parts: THREE.BufferGeometry[] = [];
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + seed;
+        const r = i === 0 ? 0 : 0.85 * scale;
+        const fY = i === 0 ? 0.7 * scale : 0.4 * scale;
+        const fRadius = i === 0 ? 1.4 * scale : 1.0 * scale;
+
+        const sphere = new THREE.DodecahedronGeometry(fRadius, 1);
+        sphere.scale(1.0, 0.82, 1.0);
+        sphere.translate(cx + Math.cos(angle) * r, cy + fY, cz + Math.sin(angle) * r);
+        parts.push(sphere);
+      }
+      const merged = mergeGeometries(parts.map(cleanGeo), false);
+      parts.forEach((p) => p.dispose());
+      if (merged) foliageParts.push(merged);
+    };
+
+    // 17. Seagull Mesh Builder (Low-Poly Hand-Drawn Ghibli Seagull)
+    const buildSeagullMesh = (): { group: THREE.Group; wingLeft: THREE.Object3D; wingRight: THREE.Object3D } => {
+      const group = new THREE.Group();
+      group.name = 'scenery-seagull';
+
+      const bodyGeo = new THREE.ConeGeometry(0.22, 1.1, 6);
+      bodyGeo.rotateX(Math.PI / 2);
+      const headGeo = new THREE.SphereGeometry(0.18, 6, 6);
+      headGeo.translate(0, 0.08, 0.52);
+      const mergedBody = mergeGeometries([cleanGeo(bodyGeo), cleanGeo(headGeo)], false)!;
+      const bodyMesh = new THREE.Mesh(
+        mergedBody,
+        createToonMaterial({ color: PALETTE.seagullWhite, shadowTint: PALETTE.skyMid, emissive: PALETTE.seagullWhite, emissiveIntensity: 0.12 }),
+      );
+      addOutline(bodyMesh, { width: 0.45 });
+      markInk(bodyMesh);
+      group.add(bodyMesh);
+
+      const beakGeo = new THREE.ConeGeometry(0.06, 0.26, 5);
+      beakGeo.rotateX(Math.PI / 2);
+      beakGeo.translate(0, 0.04, 0.72);
+      const beakMesh = new THREE.Mesh(
+        cleanGeo(beakGeo),
+        createToonMaterial({ color: PALETTE.seagullBeak, emissive: PALETTE.seagullBeak, emissiveIntensity: 0.3 }),
+      );
+      group.add(beakMesh);
+
+      const wingLeftGroup = new THREE.Group();
+      wingLeftGroup.position.set(0.14, 0.05, 0.05);
+      const wingLGeo = new THREE.BufferGeometry();
+      wingLGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, 0, 0.18,
+        1.1, 0.04, -0.05,
+        0, 0, -0.22,
+        1.1, 0.04, -0.05,
+        1.7, 0.02, -0.15,
+        0.7, 0.03, -0.28,
+      ], 3));
+      wingLGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 0.6, 0, 0, 0, 0.6, 0, 1, 0, 0.4, 0], 2));
+      wingLGeo.setIndex([0, 1, 2, 1, 4, 5, 2, 1, 5]);
+      wingLGeo.computeVertexNormals();
+      const wingLMesh = new THREE.Mesh(
+        wingLGeo,
+        createToonMaterial({ color: PALETTE.seagullWhite, shadowTint: PALETTE.seagullWingGrey }),
+      );
+      addOutline(wingLMesh, { width: 0.45 });
+      markInk(wingLMesh);
+      wingLeftGroup.add(wingLMesh);
+      group.add(wingLeftGroup);
+
+      const wingRightGroup = new THREE.Group();
+      wingRightGroup.position.set(-0.14, 0.05, 0.05);
+      const wingRGeo = new THREE.BufferGeometry();
+      wingRGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, 0, 0.18,
+        0, 0, -0.22,
+        -1.1, 0.04, -0.05,
+        -1.1, 0.04, -0.05,
+        -0.7, 0.03, -0.28,
+        -1.7, 0.02, -0.15,
+      ], 3));
+      wingRGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 0, 0, 0.6, 0, 0.6, 0, 0.4, 0, 1, 0], 2));
+      wingRGeo.setIndex([0, 1, 2, 3, 4, 5, 1, 4, 3]);
+      wingRGeo.computeVertexNormals();
+      const wingRMesh = new THREE.Mesh(
+        wingRGeo,
+        createToonMaterial({ color: PALETTE.seagullWhite, shadowTint: PALETTE.seagullWingGrey }),
+      );
+      addOutline(wingRMesh, { width: 0.45 });
+      markInk(wingRMesh);
+      wingRightGroup.add(wingRMesh);
+      group.add(wingRightGroup);
+
+      return { group, wingLeft: wingLeftGroup, wingRight: wingRightGroup };
+    };
+
+    // 18. Leaping Dolphin Builder
+    const buildDolphinMesh = (): THREE.Group => {
+      const group = new THREE.Group();
+      group.name = 'scenery-dolphin';
+
+      const bodyGeo = new THREE.ConeGeometry(0.55, 3.2, 8);
+      bodyGeo.rotateX(Math.PI / 2);
+      const snoutGeo = new THREE.SphereGeometry(0.35, 8, 8);
+      snoutGeo.scale(0.85, 0.65, 1.4);
+      snoutGeo.translate(0, -0.05, 1.4);
+
+      const finGeo = new THREE.BufferGeometry();
+      finGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, 0.4, 0.2,
+        0, 1.15, -0.45,
+        0, 0.35, -0.65,
+      ], 3));
+      finGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 0.5, 1, 1, 0], 2));
+      finGeo.setIndex([0, 1, 2, 0, 2, 1]);
+      finGeo.computeVertexNormals();
+
+      const tailGeo = new THREE.BufferGeometry();
+      tailGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, 0, -1.5,
+        0.85, 0.05, -2.1,
+        -0.85, 0.05, -2.1,
+        0, 0, -1.8,
+      ], 3));
+      tailGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0.5, 0, 1, 1, 0, 1, 0.5, 0.5], 2));
+      tailGeo.setIndex([0, 1, 3, 0, 3, 2]);
+      tailGeo.computeVertexNormals();
+
+      const merged = mergeGeometries([cleanGeo(bodyGeo), cleanGeo(snoutGeo), cleanGeo(finGeo), cleanGeo(tailGeo)], false)!;
+      const dolphinMat = createToonMaterial({
+        color: PALETTE.dolphinBody,
+        shadowTint: PALETTE.seaDeep,
+        emissive: PALETTE.dolphinBody,
+        emissiveIntensity: 0.1,
+      });
+      const mesh = new THREE.Mesh(merged, dolphinMat);
+      addOutline(mesh, { width: 0.65 });
+      markInk(mesh);
+      group.add(mesh);
+
+      return group;
+    };
+
+    const buildSplashRing = (): THREE.Mesh => {
+      const ringGeo = new THREE.RingGeometry(0.4, 2.2, 16);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: PALETTE.foam,
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(ringGeo, ringMat);
+      mesh.layers.disable(LAYER_INK);
+      mesh.layers.enable(LAYER_ENERGY);
+      return mesh;
+    };
+
+    // 19. Dandelion Spores & Floating Grass Particles
+    const buildDandelionSpores = (): void => {
+      const count = 160;
+      const pos = new Float32Array(count * 3);
+      const base = new Float32Array(count * 3);
+
+      for (let i = 0; i < count; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const x = side === -1 ? -40 - ((i * 3.7) % 45) : 35 + ((i * 3.7) % 40);
+        const z = -20 + ((i * 7.1) % 340);
+        const y = 8 + ((i * 2.3) % 30);
+
+        pos[i * 3] = x;
+        pos[i * 3 + 1] = y;
+        pos[i * 3 + 2] = z;
+
+        base[i * 3] = x;
+        base[i * 3 + 1] = y;
+        base[i * 3 + 2] = z;
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.PointsMaterial({
+        color: PALETTE.sunCore,
+        size: 0.55,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+      });
+      const points = new THREE.Points(geo, mat);
+      points.name = 'dandelion-spores';
+      points.layers.disable(LAYER_INK);
+      this.object.add(points);
+
+      this.scenerySporesPoints = points;
+      this.scenerySporesPositions = pos;
+      this.scenerySporesBase = base;
+    };
+
+    // Helper: push triangle (a, b, c) with winding guaranteed to face along outward vector (ox, oy, oz)
+    const pushTriOutward = (
+      pos: readonly number[],
+      idx: number[],
+      a: number,
+      b: number,
+      c: number,
+      ox: number,
+      oy: number,
+      oz: number,
+    ): void => {
+      const ax = pos[a * 3], ay = pos[a * 3 + 1], az = pos[a * 3 + 2];
+      const bx = pos[b * 3] - ax, by = pos[b * 3 + 1] - ay, bz = pos[b * 3 + 2] - az;
+      const cx = pos[c * 3] - ax, cy = pos[c * 3 + 1] - ay, cz = pos[c * 3 + 2] - az;
+      const nx = by * cz - bz * cy;
+      const ny = bz * cx - bx * cz;
+      const nz = bx * cy - by * cx;
+      if (nx * ox + ny * oy + nz * oz >= 0) {
+        idx.push(a, b, c);
+      } else {
+        idx.push(a, c, b);
+      }
+    };
+
+    // 20. Sculpted Studio Ghibli Canyon Wall & Terraced Gorge Builder (吉卜力层岩大峡谷与翠绿台地)
+    const makeGhibliCanyonWall = (
+      spine: readonly [number, number, number][], // [x, z, peakHeight]
+      baseHalfW: number,
+      topHalfW: number,
+      seed = 0,
+      rockTarget: 'canyon' | 'chalk' = 'canyon',
+    ): void => {
+      if (spine.length < 2) return;
+      const curvePts = spine.map(([x, z, h]) => new THREE.Vector3(x, h, z));
+      const curve = new THREE.CatmullRomCurve3(curvePts, false, 'centripetal');
+      const segsAlong = Math.max(20, (spine.length - 1) * 10);
+      const layersY = 7;
+      const ringVerts = segsAlong * 2 + 2;
+
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+      const ringSpineX: number[] = [];
+      const ringSpineZ: number[] = [];
+
+      const pt = new THREE.Vector3();
+      const tan = new THREE.Vector3();
+      const samples: { x: number; z: number; h: number; nx: number; nz: number; u: number }[] = [];
+      for (let i = 0; i <= segsAlong; i++) {
+        const u = i / segsAlong;
+        curve.getPoint(u, pt);
+        curve.getTangent(u, tan);
+        const il = 1 / (Math.hypot(tan.x, tan.z) || 1);
+        const nx = -tan.z * il;
+        const nz = tan.x * il;
+        const endTaper = Math.sin(u * Math.PI);
+        const taperFactor = 0.52 + 0.48 * Math.pow(endTaper, 0.45);
+        const cragMod = 1.0 + Math.sin(u * 18.0 + seed) * 0.10 + Math.cos(u * 31.0 + seed * 1.7) * 0.06;
+        samples.push({ x: pt.x, z: pt.z, h: pt.y * taperFactor * cragMod, nx, nz, u });
+      }
+
+      for (let l = 0; l < layersY; l++) {
+        const fy = l / (layersY - 1);
+        const shelfProfile =
+          l === 0 ? 1.24 :
+          l === 1 ? 1.02 :
+          l === 2 ? 1.10 :
+          l === 3 ? 0.94 :
+          l === 4 ? 1.04 :
+          l === 5 ? 0.88 : 0.82;
+
+        for (let side = 0; side < 2; side++) {
+          for (let k = 0; k <= segsAlong; k++) {
+            const idx = side === 0 ? k : segsAlong - k;
+            const s = samples[idx];
+            const sign = side === 0 ? 1 : -1;
+            const endWidthTaper = 0.38 + 0.62 * Math.pow(Math.sin(s.u * Math.PI), 0.38);
+            const wBase = THREE.MathUtils.lerp(baseHalfW, topHalfW, Math.pow(fy, 0.78)) * shelfProfile * endWidthTaper;
+            const ribNoise =
+              Math.sin(s.u * 24.0 + seed * 1.3 + side * 2.1) * 0.16 +
+              Math.cos(s.u * 42.0 + l * 1.4 + seed) * 0.09;
+            const w = wBase * (1.0 + ribNoise);
+            const y = -3.2 + (s.h + 3.2) * fy;
+            pos.push(s.x + s.nx * sign * w, y, s.z + s.nz * sign * w);
+            uvs.push(s.u, fy);
+            if (l === 0) {
+              ringSpineX.push(s.x);
+              ringSpineZ.push(s.z);
+            }
+          }
+        }
+      }
+
+      for (let l = 0; l < layersY - 1; l++) {
+        for (let i = 0; i < ringVerts; i++) {
+          const nextI = (i + 1) % ringVerts;
+          const a = l * ringVerts + i;
+          const b = l * ringVerts + nextI;
+          const c = (l + 1) * ringVerts + i;
+          const d = (l + 1) * ringVerts + nextI;
+          const ox = pos[a * 3] - ringSpineX[i];
+          const oz = pos[a * 3 + 2] - ringSpineZ[i];
+          pushTriOutward(pos, indices, a, b, c, ox, 0.25, oz);
+          pushTriOutward(pos, indices, b, d, c, ox, 0.25, oz);
+        }
+      }
+
+      // Close top plateau & build lush Ghibli emerald grass terrace crown
+      const topStart = (layersY - 1) * ringVerts;
+      const grassPos: number[] = [];
+      const grassUvs: number[] = [];
+      const grassIdx: number[] = [];
+
+      for (let k = 0; k <= segsAlong; k++) {
+        const s = samples[k];
+        const iPos = topStart + k;
+        const iNeg = topStart + (ringVerts - 1 - k);
+        if (k < segsAlong) {
+          pushTriOutward(pos, indices, iPos, iNeg, iPos + 1, 0, 1, 0);
+          pushTriOutward(pos, indices, iPos + 1, iNeg, iNeg - 1, 0, 1, 0);
+        }
+        const vxP = pos[iPos * 3];
+        const vyP = pos[iPos * 3 + 1] + 0.18;
+        const vzP = pos[iPos * 3 + 2];
+        const vxN = pos[iNeg * 3];
+        const vyN = pos[iNeg * 3 + 1] + 0.18;
+        const vzN = pos[iNeg * 3 + 2];
+        const crownY = s.h + 2.4 + Math.sin(s.u * 15.0 + seed) * 1.1;
+
+        grassPos.push(
+          vxP, vyP, vzP,
+          s.x, crownY, s.z,
+          vxN, vyN, vzN,
+        );
+        grassUvs.push(s.u, 0, s.u, 0.5, s.u, 1);
+      }
+
+      for (let k = 0; k < segsAlong; k++) {
+        const b = k * 3;
+        pushTriOutward(grassPos, grassIdx, b, b + 1, b + 3, 0, 1, 0);
+        pushTriOutward(grassPos, grassIdx, b + 1, b + 4, b + 3, 0, 1, 0);
+        pushTriOutward(grassPos, grassIdx, b + 1, b + 2, b + 4, 0, 1, 0);
+        pushTriOutward(grassPos, grassIdx, b + 2, b + 5, b + 4, 0, 1, 0);
+      }
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      rockGeo.setIndex(indices);
+      rockGeo.computeVertexNormals();
+      if (rockTarget === 'chalk') chalkParts.push(rockGeo);
+      else canyonParts.push(rockGeo);
+
+      const grassGeo = new THREE.BufferGeometry();
+      grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassPos, 3));
+      grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUvs, 2));
+      grassGeo.setIndex(grassIdx);
+      grassGeo.computeVertexNormals();
+      grassParts.push(grassGeo);
+    };
+
+    // 21. Panoramic Studio Ghibli Mountain Range Builder (吉卜力连绵山峦与叠翠远峰)
+    const makeGhibliMountainRidge = (
+      spine: readonly [number, number, number][], // [x, z, peakHeight]
+      baseHalfW: number,
+      seed = 0,
+    ): void => {
+      if (spine.length < 2) return;
+      const curvePts = spine.map(([x, z, h]) => new THREE.Vector3(x, h, z));
+      const curve = new THREE.CatmullRomCurve3(curvePts, false, 'centripetal');
+      const segsAlong = Math.max(24, (spine.length - 1) * 10);
+      const pt = new THREE.Vector3();
+      const tan = new THREE.Vector3();
+
+      const greenPos: number[] = [];
+      const greenUvs: number[] = [];
+      const greenIdx: number[] = [];
+
+      const rockPos: number[] = [];
+      const rockUvs: number[] = [];
+      const rockIdx: number[] = [];
+
+      for (let i = 0; i <= segsAlong; i++) {
+        const u = i / segsAlong;
+        curve.getPoint(u, pt);
+        curve.getTangent(u, tan);
+        const il = 1 / (Math.hypot(tan.x, tan.z) || 1);
+        const nx = -tan.z * il;
+        const nz = tan.x * il;
+
+        const endEnvelope = Math.pow(Math.sin(u * Math.PI), 0.42);
+        const peakOsc =
+          Math.abs(Math.sin(u * Math.PI * (spine.length + 1) + seed)) * 0.28 +
+          Math.sin(u * 27.0 + seed * 1.9) * 0.10;
+        const h = Math.max(12.0, pt.y * (0.35 + 0.65 * endEnvelope) * (0.86 + peakOsc));
+        const spurL = baseHalfW * (0.45 + 0.55 * endEnvelope) * (1.0 + Math.sin(u * 19.0 + seed) * 0.22);
+        const spurR = baseHalfW * (0.45 + 0.55 * endEnvelope) * (1.0 + Math.cos(u * 17.0 + seed * 1.4) * 0.22);
+        const ridgeShift = Math.sin(u * 23.0 + seed * 0.7) * baseHalfW * 0.12;
+
+        const midHL = h * (0.58 + Math.sin(u * 14.0 + seed) * 0.08);
+        const midHR = h * (0.56 + Math.cos(u * 16.0 + seed) * 0.08);
+        const crestGreenH = h * 0.88;
+
+        greenPos.push(
+          pt.x - nx * spurL, -4.0, pt.z - nz * spurL,
+          pt.x - nx * (spurL * 0.46), midHL, pt.z - nz * (spurL * 0.46),
+          pt.x + nx * ridgeShift, crestGreenH, pt.z + nz * ridgeShift,
+          pt.x + nx * (spurR * 0.46), midHR, pt.z + nz * (spurR * 0.46),
+          pt.x + nx * spurR, -4.0, pt.z + nz * spurR,
+        );
+        greenUvs.push(u, 0, u, 0.35, u, 0.7, u, 0.35, u, 0);
+
+        const cragW = baseHalfW * 0.28 * (0.4 + 0.6 * endEnvelope);
+        const baseRockH = h * 0.48;
+        rockPos.push(
+          pt.x + nx * (ridgeShift - cragW), baseRockH, pt.z + nz * (ridgeShift - cragW),
+          pt.x + nx * ridgeShift, h + 4.5, pt.z + nz * ridgeShift,
+          pt.x + nx * (ridgeShift + cragW), baseRockH, pt.z + nz * (ridgeShift + cragW),
+        );
+        rockUvs.push(u, 0.4, u, 1.0, u, 0.4);
+      }
+
+      for (let i = 0; i < segsAlong; i++) {
+        const g = i * 5;
+        for (let s = 0; s < 4; s++) {
+          pushTriOutward(greenPos, greenIdx, g + s, g + s + 1, g + 5 + s, 0, 1, 0);
+          pushTriOutward(greenPos, greenIdx, g + s + 1, g + 5 + s + 1, g + 5 + s, 0, 1, 0);
+        }
+        const r = i * 3;
+        for (let s = 0; s < 2; s++) {
+          pushTriOutward(rockPos, rockIdx, r + s, r + s + 1, r + 3 + s, 0, 1, 0);
+          pushTriOutward(rockPos, rockIdx, r + s + 1, r + 3 + s + 1, r + 3 + s, 0, 1, 0);
+        }
+      }
+
+      const greenGeo = new THREE.BufferGeometry();
+      greenGeo.setAttribute('position', new THREE.Float32BufferAttribute(greenPos, 3));
+      greenGeo.setAttribute('uv', new THREE.Float32BufferAttribute(greenUvs, 2));
+      greenGeo.setIndex(greenIdx);
+      greenGeo.computeVertexNormals();
+      mountainGreenParts.push(greenGeo);
+
+      const rockGeo = new THREE.BufferGeometry();
+      rockGeo.setAttribute('position', new THREE.Float32BufferAttribute(rockPos, 3));
+      rockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(rockUvs, 2));
+      rockGeo.setIndex(rockIdx);
+      rockGeo.computeVertexNormals();
+      mountainRockParts.push(rockGeo);
+    };
+
+    // 22. Cascading Canyon Waterfall Builder (峡谷白练飞瀑与水雾潭)
+    const makeGhibliWaterfall = (
+      cx: number,
+      cz: number,
+      topY: number,
+      yaw: number,
+      width = 5.5,
+    ): void => {
+      const steps = 10;
+      const pos: number[] = [];
+      const uvs: number[] = [];
+      const idx: number[] = [];
+      const cosY = Math.cos(yaw);
+      const sinY = Math.sin(yaw);
+
+      for (let i = 0; i <= steps; i++) {
+        const f = i / steps;
+        const y = THREE.MathUtils.lerp(topY, -0.5, f);
+        const forwardOut = Math.pow(f, 1.55) * 8.5 + Math.sin(f * Math.PI * 3) * 0.45;
+        const halfW = width * 0.5 * (1.0 + f * 0.45);
+        for (const side of [-1, 1]) {
+          const lx = side * halfW;
+          const lz = forwardOut;
+          const wx = cx + lx * cosY + lz * sinY;
+          const wz = cz - lx * sinY + lz * cosY;
+          pos.push(wx, y, wz);
+          uvs.push(side * 0.5 + 0.5, f);
+        }
+      }
+      for (let i = 0; i < steps; i++) {
+        const b = i * 2;
+        pushTriOutward(pos, idx, b, b + 1, b + 2, sinY, 0.5, cosY);
+        pushTriOutward(pos, idx, b + 1, b + 3, b + 2, sinY, 0.5, cosY);
+      }
+
+      // Foaming plunge pool disc at water surface
+      const poolX = cx + 8.5 * sinY;
+      const poolZ = cz + 8.5 * cosY;
+      const poolGeo = new THREE.CylinderGeometry(width * 1.15, width * 1.35, 0.45, 14);
+      poolGeo.translate(poolX, 0.18, poolZ);
+      waterfallParts.push(poolGeo);
+
+      const fallGeo = new THREE.BufferGeometry();
+      fallGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      fallGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      fallGeo.setIndex(idx);
+      fallGeo.computeVertexNormals();
+      waterfallParts.push(fallGeo);
+    };
+
+    // ==================== ASSEMBLE WONDER SECTIONS ====================
+
+    // --- Section 0: Panoramic Studio Ghibli Mountain Ranges & Sculpted Grand Canyons ---
+    // 1. West Harbor Fjord Limestone & Emerald Canyon Wall (frames the starting straight)
+    makeGhibliCanyonWall(
+      [
+        [-88, -110, 42],
+        [-82, -20, 54],
+        [-86, 90, 68],
+        [-78, 205, 58],
+        [-72, 325, 52],
+        [-45, 425, 44],
+      ],
+      26,
+      16,
+      1.1,
+      'chalk',
+    );
+    // 2. East Harbor Headland Canyon Wall
+    makeGhibliCanyonWall(
+      [
+        [78, 70, 38],
+        [82, 175, 52],
+        [92, 265, 62],
+        [135, 345, 48],
+      ],
+      24,
+      15,
+      2.3,
+      'chalk',
+    );
+    // 3. Grand Sweeper & Chicane Gorge — North Towering Canyon Wall (峡谷天梯北壁)
+    makeGhibliCanyonWall(
+      [
+        [45, 515, 56],
+        [145, 548, 74],
+        [255, 578, 88],
+        [355, 572, 94],
+        [445, 552, 82],
+        [535, 505, 68],
+      ],
+      32,
+      19,
+      3.7,
+      'canyon',
+    );
+    // 4. Grand Chicane Gorge — South Inner Canyon Wall (峡谷天梯南壁，形成壮丽夹道峡谷)
+    makeGhibliCanyonWall(
+      [
+        [255, 392, 58],
+        [325, 402, 72],
+        [395, 396, 68],
+        [452, 388, 56],
+      ],
+      24,
+      14,
+      4.9,
+      'canyon',
+    );
+    // 5. East Loop & Laputa Corridor Canyon Amphitheater (东侧大回环峡谷绝壁)
+    makeGhibliCanyonWall(
+      [
+        [555, 470, 74],
+        [595, 365, 86],
+        [588, 245, 78],
+        [520, 145, 62],
+      ],
+      30,
+      18,
+      6.1,
+      'canyon',
+    );
+    // 6. Hairpin & Airtime Straight East Coastal Canyon Ridge
+    makeGhibliCanyonWall(
+      [
+        [345, 120, 56],
+        [365, -10, 66],
+        [340, -145, 58],
+        [275, -245, 48],
+      ],
+      26,
+      15,
+      7.4,
+      'chalk',
+    );
+
+    // Cascading Canyon Waterfalls plunging down the cliffs into the sea
+    makeGhibliWaterfall(-64, 145, 48, 1.45, 5.2);
+    makeGhibliWaterfall(220, 548, 72, 3.05, 6.8);
+    makeGhibliWaterfall(335, 545, 78, 3.12, 7.5);
+    makeGhibliWaterfall(425, 525, 66, 3.35, 6.0);
+    makeGhibliWaterfall(562, 315, 70, -1.55, 6.5);
+
+    // 360-Degree Studio Ghibli Horizon Mountain Ranges (宫崎骏式层峦叠嶂远景山脉)
+    // North Alpine Massif (behind the Grand Canyon & Sweeper)
+    makeGhibliMountainRidge(
+      [
+        [-320, 620, 135],
+        [-110, 710, 185],
+        [120, 760, 225],
+        [360, 740, 210],
+        [620, 670, 175],
+        [820, 520, 140],
+      ],
+      95,
+      1.5,
+    );
+    // East & Southeast High Mountain Chain (framing Laputa & the Loop)
+    makeGhibliMountainRidge(
+      [
+        [760, 480, 165],
+        [840, 260, 215],
+        [810, 20, 195],
+        [710, -210, 168],
+        [540, -390, 135],
+      ],
+      90,
+      2.8,
+    );
+    // South & Southwest Coastal Mountain Range (framing the Carousel & Harbor Approach)
+    makeGhibliMountainRidge(
+      [
+        [480, -410, 145],
+        [240, -490, 190],
+        [-20, -480, 175],
+        [-260, -410, 160],
+        [-440, -250, 138],
+      ],
+      88,
+      4.1,
+    );
+    // West Fjord Mountain Range (towering behind the Windmill Village)
+    makeGhibliMountainRidge(
+      [
+        [-410, -220, 142],
+        [-460, 20, 195],
+        [-440, 260, 210],
+        [-350, 490, 172],
+        [-160, 640, 145],
+      ],
+      92,
+      5.4,
+    );
+
+    // --- Section 1: Chalk Haven, Terracotta Windmill Village & Launch Pier ---
+    makeGliderLaunchPier(13.0, -30.0, -17.0);
+
+    // West Chalk Haven Promontory & Layered Grass Terraces
+    makeChalkCapeCliff(-58, -35, 26, 22, 22, 18, 5, 1.2);
+    makeChalkCapeCliff(-68, 85, 34, 28, 34, 18, 6, 2.5);
+    makeAncientWatchtower(-68, 34, 85, 3.2, 18.0);
+    makeChalkCapeCliff(-58, 210, 30, 25, 28, 18, 5, 3.8);
+    makeGliderLaunchRamp(-48, 16, 195, -0.25, 7.5, 24.0, 14.0);
+    makeChalkWindmill(-65, 28, 235, 4.0, 14.0);
+    makeChalkCapeCliff(-52, 320, 25, 20, 26, 18, 5, 4.1);
+
+    // West Terraces Mediterranean Village Cottages
+    makeVillageHouse(-56, 22, -25, 0.4, 6.5, 8.5, 5.2, true, true);
+    makeVillageHouse(-64, 22, -45, -0.3, 5.8, 7.2, 4.8, false, true);
+    makeVillageHouse(-68, 34, 65, 0.6, 7.0, 9.0, 5.5, true, true);
+    makeVillageHouse(-74, 34, 105, -0.2, 6.0, 8.0, 5.0, false, false);
+    makeVillageHouse(-56, 28, 185, 0.8, 6.8, 8.2, 5.2, true, true);
+    makeVillageHouse(-64, 28, 245, -0.5, 5.5, 7.5, 4.8, false, true);
+    makeVillageHouse(-48, 26, 305, 0.3, 6.2, 7.8, 5.0, false, true);
+
+    // East Headland Promontory & Coastal Village
+    makeChalkCapeCliff(58, 195, 24, 19, 20, 16, 4, 5.2);
+    makeGliderLaunchRamp(46, 14, 205, 0.35, 6.8, 22.0, 12.0);
+    makeChalkCapeCliff(72, 280, 28, 23, 24, 16, 5, 6.1);
+    makeChalkWindmill(70, 24, 275, 3.8, 13.0);
+
+    makeVillageHouse(52, 20, 175, -0.7, 6.0, 7.5, 4.8, false, true);
+    makeVillageHouse(60, 20, 215, 0.4, 6.8, 8.5, 5.2, true, true);
+    makeVillageHouse(68, 24, 265, -0.3, 7.2, 9.0, 5.4, true, true);
+
+    // Coastal Foliage Clusters
+    makeFoliageCluster(-68, 34, 98, 2.5, 5, 1.1);
+    makeFoliageCluster(-58, 28, 220, 2.8, 6, 2.3);
+    makeFoliageCluster(56, 20, 185, 2.2, 4, 3.4);
+    makeFoliageCluster(72, 24, 290, 2.6, 5, 4.5);
+
+    // Living Ecosystem: Dandelion Spores
+    buildDandelionSpores();
+
+    // Living Ecosystem: Seagull Flocks
+    const seagullConfigs = [
+      { x: 0, y: 12, z: 40, r: 18, spd: 0.45, ph: 0.0, flap: 7.2, vAmp: 1.8 },
+      { x: 5, y: 14, z: 90, r: 22, spd: 0.40, ph: 1.2, flap: 6.8, vAmp: 2.2 },
+      { x: -6, y: 11, z: 140, r: 20, spd: 0.48, ph: 2.4, flap: 7.5, vAmp: 1.6 },
+      { x: 4, y: 15, z: 180, r: 24, spd: 0.38, ph: 3.6, flap: 6.5, vAmp: 2.0 },
+      { x: -3, y: 13, z: 70, r: 16, spd: 0.52, ph: 4.8, flap: 8.0, vAmp: 1.5 },
+      { x: -62, y: 44, z: 95, r: 28, spd: 0.32, ph: 0.8, flap: 5.5, vAmp: 2.8 },
+      { x: -55, y: 40, z: 190, r: 26, spd: 0.35, ph: 2.1, flap: 5.8, vAmp: 2.5 },
+      { x: -68, y: 48, z: 240, r: 30, spd: 0.30, ph: 3.9, flap: 5.2, vAmp: 3.0 },
+      { x: -48, y: 38, z: 290, r: 24, spd: 0.36, ph: 5.0, flap: 6.0, vAmp: 2.2 },
+      { x: 58, y: 32, z: 210, r: 22, spd: 0.42, ph: 1.5, flap: 6.6, vAmp: 2.0 },
+      { x: 65, y: 36, z: 270, r: 25, spd: 0.38, ph: 4.2, flap: 6.2, vAmp: 2.4 },
+    ];
+
+    for (const cfg of seagullConfigs) {
+      const g = buildSeagullMesh();
+      this.object.add(g.group);
+      this.scenerySeagulls.push({
+        group: g.group,
+        wingLeft: g.wingLeft,
+        wingRight: g.wingRight,
+        baseX: cfg.x,
+        baseY: cfg.y,
+        baseZ: cfg.z,
+        radius: cfg.r,
+        speed: cfg.spd,
+        phase: cfg.ph,
+        flapFreq: cfg.flap,
+        verticalAmp: cfg.vAmp,
+      });
+    }
+
+    // Living Ecosystem: Leaping Dolphins in Shallow Coastal Waters
+    const dolphinConfigs = [
+      { sx: 18, sz: 60, ex: 24, ez: 110, y: 4.2, per: 6.5, ph: 0.0 },
+      { sx: -16, sz: 120, ex: -10, ez: 175, y: 4.6, per: 7.2, ph: 0.35 },
+      { sx: 22, sz: 190, ex: 30, ez: 250, y: 4.0, per: 6.8, ph: 0.7 },
+      { sx: -20, sz: 240, ex: -14, ez: 300, y: 4.5, per: 7.5, ph: 0.2 },
+      { sx: 40, sz: 320, ex: 55, ez: 375, y: 4.4, per: 6.2, ph: 0.55 },
+    ];
+
+    for (const cfg of dolphinConfigs) {
+      const dGroup = buildDolphinMesh();
+      const splash = buildSplashRing();
+      this.object.add(dGroup);
+      this.object.add(splash);
+      this.sceneryLeapingCreatures.push({
+        group: dGroup,
+        splashRing: splash,
+        startX: cfg.sx,
+        startZ: cfg.sz,
+        endX: cfg.ex,
+        endZ: cfg.ez,
+        peakY: cfg.y,
+        period: cfg.per,
+        phase: cfg.ph,
+      });
+    }
+
+    // --- Section 2: Coral Reef Lagoon & Karst Sea Stacks ---
+    makeCoralAtoll(115, 365, 28, 14, 6, 1.1);
+    makeCoralAtoll(45, 460, 24, 10, 5, 2.2);
+    makeCoralAtoll(185, 515, 22, 11, 6, 3.3);
+
+    makeCoralCluster(110, 0.4, 355, 1.4, 0, 'pink');
+    makeCoralCluster(125, 0.4, 375, 1.3, 1, 'gold');
+    makeCoralCluster(40, 0.4, 450, 1.2, 1, 'pink');
+    makeCoralCluster(190, 0.4, 485, 1.5, 0, 'gold');
+
+    makeSeaStack(28, 415, 6.0, 3.5, 28.0, 12, 1.5);
+    makeNaturalSeaArch(82, 495, 0.52, 38.0, 28.0, 18.0, 10.0, 18);
+    makeSeaStack(155, 495, 6.5, 4.0, 26.0, 12, 2.7);
+    makeSeaStack(225, 510, 7.0, 4.5, 30.0, 12, 3.9);
+
+    // --- Section 3: Canyon Stairway & Cloud Terraces (Warm Terracotta Sandstone) ---
+    makeCanyonCliff(270, 565, 32, 28, 44, 16, 5, 4.5);
+    makeCanyonCliff(355, 560, 35, 30, 48, 16, 6, 5.7);
+    makeCanyonCliff(440, 545, 30, 26, 42, 16, 5, 6.3);
+
+    makeCanyonCliff(275, 395, 28, 24, 36, 16, 5, 7.1);
+    makeCanyonCliff(365, 395, 32, 28, 40, 16, 5, 8.2);
+    makeCanyonCliff(445, 395, 28, 24, 38, 16, 5, 9.4);
+
+    makeCanyonCliff(310, 580, 20, 16, 20, 12, 3, 1.3);
+    makeCanyonCliff(380, 570, 18, 14, 24, 12, 3, 2.4);
+    makeCanyonCliff(440, 555, 18, 14, 28, 12, 4, 3.5);
+
+    makeSuspensionBridge(new THREE.Vector3(300, 36, 565), new THREE.Vector3(295, 36, 395), 2.8, 3.5, 26);
+    makeSuspensionBridge(new THREE.Vector3(385, 40, 560), new THREE.Vector3(380, 40, 395), 2.6, 3.0, 24);
+
+    makeFoliageCluster(270, 44, 565, 3.2, 5, 4.2);
+    makeFoliageCluster(355, 48, 560, 3.5, 6, 5.1);
+
+    // --- Section 4: Laputa Floating Sky Continents & Cloud Sea Corridor (Y = 25m ~ 60m) ---
+    // 1. Primary Laputa Continent & Ancient Colonnade Ruin
+    makeLaputaFloatingIsland(510, 36, 340, 34, 26, 16, 1.8, true);
+    makeAncientColonnade(new THREE.Vector3(494, 36, 326), new THREE.Vector3(526, 36, 354), 0.65, 6.2, 7);
+    makeAncientSundialRuin(520, 36.2, 335, 3.4);
+    makeSuspendedPrayerPennants(new THREE.Vector3(494, 42.5, 326), new THREE.Vector3(526, 42.5, 354), 9, 2.2);
+
+    // 2. Secondary Sun Temple Island & High Sky Viaduct 1
+    makeLaputaFloatingIsland(460, 44, 240, 28, 22, 16, 2.9, true);
+    makeAncientSunTemple(460, 44.2, 240, 10.5, 8, 6.5);
+    makeAncientSundialRuin(460, 44.3, 240, 2.8);
+    makeSuspendedPrayerPennants(new THREE.Vector3(450, 50.5, 230), new THREE.Vector3(470, 50.5, 250), 7, 1.8);
+    makeSkyAqueductViaduct(new THREE.Vector3(500, 36, 320), new THREE.Vector3(468, 44, 255), 5, 14.0, 3.8, true);
+
+    // 3. Tertiary Stepping Island & High Sky Viaduct 2
+    makeLaputaFloatingIsland(350, 38, 145, 28, 20, 16, 3.7, true);
+    makeAncientColonnade(new THREE.Vector3(338, 38, 135), new THREE.Vector3(362, 38, 155), 0.6, 5.8, 6);
+    makeSkyAqueductViaduct(new THREE.Vector3(448, 44, 225), new THREE.Vector3(365, 38, 155), 6, 16.0, 3.6, true);
+
+    // 4. Quaternary Apex Floating Crag & Watchtower Spire
+    makeLaputaFloatingIsland(265, 46, 45, 25, 18, 16, 4.8, true);
+    makeAncientWatchtower(265, 46, 45, 3.6, 20.0);
+    makeGliderLaunchRamp(250, 46, 35, 0.45, 8.0, 26.0, 14.0);
+
+    // 5. Rich high-altitude tree canopies
+    makeFoliageCluster(510, 36, 340, 3.8, 7, 6.2);
+    makeFoliageCluster(460, 44, 240, 3.4, 6, 7.3);
+    makeFoliageCluster(350, 38, 145, 3.2, 5, 8.4);
+    makeFoliageCluster(265, 46, 45, 3.0, 5, 9.5);
+
+    // --- Section 5: Outer Sea Colossal Arch & Outpost Lighthouse ---
+    makeNaturalSeaArch(225, -185, -0.45, 66.0, 36.0, 24.0, 14.0, 20);
+    makeChalkCapeCliff(125, -245, 18, 15, 8, 14, 3, 5.5);
+    makeAncientWatchtower(125, 8, -245, 3.4, 22.0);
+    makeFoliageCluster(125, 8, -235, 2.4, 4, 9.1);
+
+    // ==================== COMPOSE MATERIALS & SCENERY MESHES ====================
+
+    const stoneMat = createToonMaterial({
+      color: 0xd8cbb8,
+      shadowTint: 0x7c8ca0,
+      upTint: 0.04,
+    });
+    const chalkMat = createToonMaterial({
+      color: 0xe6dac2,
+      shadowTint: 0x7a8ea8,
+      upTint: 0.05,
+    });
+    const canyonMat = createToonMaterial({
+      color: 0xce8054,
+      shadowTint: 0x6e525c,
+      upTint: 0.05,
+    });
+    const mountainGreenMat = createToonMaterial({
+      color: 0x3f8e54,
+      shadowTint: 0x245652,
+      upTintColor: 0x6ec468,
+      upTint: 0.14,
+      fogStart: 220.0,
+      fogFar: 1350.0,
+    });
+    const mountainRockMat = createToonMaterial({
+      color: 0xb4bfcc,
+      shadowTint: 0x5c7494,
+      upTintColor: 0xebe6d8,
+      upTint: 0.12,
+      fogStart: 220.0,
+      fogFar: 1350.0,
+    });
+    const waterfallMat = createToonMaterial({
+      color: 0xf2ffff,
+      shadowTint: 0x5ccae0,
+      emissive: 0x9ceeff,
+      emissiveIntensity: 0.24,
+      upTint: 0.08,
+    });
+    const wallMat = createToonMaterial({
+      color: 0xf2eadc,
+      shadowTint: 0x8294ad,
+      upTint: 0.04,
+    });
+    const roofMat = createToonMaterial({
+      color: PALETTE.roofTerracotta,
+      shadowTint: PALETTE.woodDark,
+      emissive: PALETTE.roofTerracotta,
+      emissiveIntensity: 0.04,
+    });
+    const grassMat = createToonMaterial({
+      color: 0x52a858,
+      shadowTint: 0x2b684e,
+      upTintColor: 0x7ed468,
+      upTint: 0.12,
+    });
+    const woodMat = createToonMaterial({
+      color: PALETTE.woodPlank,
+      shadowTint: PALETTE.woodDark,
+      upTint: 0.02,
+    });
+    const brassMat = createToonMaterial({
+      color: PALETTE.boatBrass,
+      emissive: PALETTE.boatBrass,
+      emissiveIntensity: 0.25,
+    });
+    const sandMat = createToonMaterial({
+      color: PALETTE.gliderCanvas,
+      shadowTint: 0x8b9bb0,
+    });
+    const coralPinkMat = createToonMaterial({
+      color: PALETTE.petalPink,
+      shadowTint: PALETTE.uiWarn,
+      emissive: PALETTE.petalPink,
+      emissiveIntensity: 0.14,
+    });
+    const coralTealMat = createToonMaterial({
+      color: 0x1d6f73,
+      shadowTint: 0x113b3d,
+      upTint: 0.02,
+    });
+    const coralGoldMat = createToonMaterial({
+      color: PALETTE.sunFlare,
+      shadowTint: PALETTE.boatWoodDark,
+      emissive: PALETTE.sunFlare,
+      emissiveIntensity: 0.16,
+    });
+    const foliageMat = createToonMaterial({
+      color: 0x4ba356,
+      shadowTint: 0x28624b,
+      upTintColor: 0x7cd166,
+      upTint: 0.10,
+    });
+
+    const addMergedMesh = (geos: THREE.BufferGeometry[], mat: THREE.Material, name: string, outline = true): void => {
+      if (geos.length === 0) return;
+      const merged = mergeGeometries(geos.map(cleanGeo), false);
+      geos.forEach((g) => g.dispose());
+      if (!merged) throw new Error(`Unable to merge ${name}`);
+      const mesh = new THREE.Mesh(merged, mat);
+      mesh.name = name;
+      if (outline) addOutline(mesh, { width: 0.72 });
+      markInk(mesh);
+      this.object.add(mesh);
+    };
+
+    addMergedMesh(stoneParts, stoneMat, 'wonder-stone-structures', false);
+    addMergedMesh(chalkParts, chalkMat, 'wonder-chalk-cliffs', false);
+    addMergedMesh(canyonParts, canyonMat, 'wonder-canyon-rock', false);
+    addMergedMesh(mountainGreenParts, mountainGreenMat, 'wonder-mountain-green', false);
+    addMergedMesh(mountainRockParts, mountainRockMat, 'wonder-mountain-rock', false);
+    addMergedMesh(waterfallParts, waterfallMat, 'wonder-waterfalls', false);
+    addMergedMesh(wallParts, wallMat, 'wonder-village-walls', true);
+    addMergedMesh(roofParts, roofMat, 'wonder-village-roofs', true);
+    addMergedMesh(grassParts, grassMat, 'wonder-grass-caps', false);
+    addMergedMesh(woodParts, woodMat, 'wonder-timber-structures', false);
+    addMergedMesh(brassParts, brassMat, 'wonder-brass-accents', true);
+    addMergedMesh(sandParts, sandMat, 'wonder-atoll-sand', false);
+    addMergedMesh(coralPinkParts, coralPinkMat, 'wonder-coral-pink', false);
+    addMergedMesh(coralTealParts, coralTealMat, 'wonder-coral-teal', false);
+    addMergedMesh(coralGoldParts, coralGoldMat, 'wonder-coral-gold', false);
+    addMergedMesh(foliageParts, foliageMat, 'wonder-foliage-crowns', false);
   }
 }

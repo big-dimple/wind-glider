@@ -130,8 +130,13 @@ export class HUD {
   private readonly course: ICourse;
   private readonly camera: THREE.PerspectiveCamera;
 
-  // speedometer
+  // speedometer & altimeter
   private readonly speedNum: HTMLDivElement;
+  private readonly speedKnots: HTMLDivElement;
+  private readonly altPanel: HTMLDivElement;
+  private readonly altVal: HTMLDivElement;
+  private readonly altZone: HTMLDivElement;
+  private readonly altAero: HTMLDivElement;
   private readonly gctx: CanvasRenderingContext2D;
 
   // lap / final lap / position
@@ -141,8 +146,10 @@ export class HUD {
   private readonly posChip: HTMLDivElement;
   private readonly posGap: HTMLDivElement;
 
-  // boost / stored flight charges
+  // boost / stored flight charges / ground resonance
   private readonly powerPanel: HTMLDivElement;
+  private readonly resonanceTrack: HTMLDivElement;
+  private readonly resonanceFill: HTMLDivElement;
   private readonly driverPower: HTMLDivElement;
   private readonly driverLeftRail: HTMLDivElement;
   private readonly driverRightRail: HTMLDivElement;
@@ -284,6 +291,12 @@ export class HUD {
 
   // change-detection state (no per-frame DOM string churn)
   private lastSpeed = -1;
+  private lastKnots = -1;
+  private lastAltStr = '';
+  private lastAltZone = '';
+  private lastAltAero = '';
+  private lastResonanceActive = false;
+  private lastResonancePct = -1;
   private lastLap = -1;
   private lastTotalLaps = -1;
   private lastPlace = -1;
@@ -370,8 +383,19 @@ export class HUD {
     this.mapBase.height = MAP_SIZE * dpr;
     this.prerenderMap(course, dpr);
 
-    // ---- speedometer -----------------------------------------------------------
+    // ---- speedometer & altimeter -----------------------------------------------
     const speedo = h('div', 'hud-speedo', this.root);
+
+    // Altimeter panel (航空高度仪与气压高度刻度)
+    this.altPanel = h('div', 'hud-panel hud-alt-panel', speedo);
+    const altHead = h('div', 'hud-alt-head', this.altPanel);
+    h('div', 'hud-alt-label', altHead, 'ALTITUDE');
+    this.altZone = h('div', 'hud-alt-zone surface', altHead, '水面');
+    const altBody = h('div', 'hud-alt-body', this.altPanel);
+    this.altVal = h('div', 'hud-alt-val hud-inked', altBody, '0.0');
+    h('div', 'hud-alt-unit', altBody, 'M');
+    this.altAero = h('div', 'hud-alt-aero', this.altPanel, '');
+
     const gaugeWrap = h('div', 'hud-panel hud-gauge-wrap', speedo);
     const gauge = document.createElement('canvas');
     gauge.className = 'hud-gauge';
@@ -382,7 +406,9 @@ export class HUD {
     this.gctx.scale(dpr, dpr);
     const speedPanel = h('div', 'hud-panel hud-speed-panel', speedo);
     this.speedNum = h('div', 'hud-speed-num hud-inked', speedPanel, '0');
-    h('div', 'hud-speed-unit', speedPanel, 'KM/H');
+    const speedUnits = h('div', 'hud-speed-units', speedPanel);
+    h('div', 'hud-speed-unit', speedUnits, 'KM/H');
+    this.speedKnots = h('div', 'hud-speed-knots', speedUnits, '0 KTS');
 
     // ---- single power unit: two launch cells above the original boost bar ----
     this.powerPanel = h('div', 'hud-panel hud-power', this.root);
@@ -399,6 +425,13 @@ export class HUD {
     for (let i = 0; i < FLIGHT_PIPS; i++) {
       this.flightPipEls.push(h('div', 'hud-flight-pip', flightPips));
     }
+
+    // Ground resonance streamer (掠海掠岩共鸣充能)
+    this.resonanceTrack = h('div', 'hud-resonance-track', this.powerPanel);
+    const resRow = h('div', 'hud-resonance-row', this.resonanceTrack);
+    h('div', 'hud-resonance-label', resRow, 'RESONANCE · 掠海共鸣');
+    const resBar = h('div', 'hud-resonance-bar', resRow);
+    this.resonanceFill = h('div', 'hud-resonance-fill', resBar);
 
     this.boostBar = h('div', 'hud-boost', this.powerPanel);
     this.boostLabel = h('div', 'hud-boost-label', this.boostBar, 'BOOST');
@@ -651,11 +684,84 @@ export class HUD {
       }
     }
 
-    // ---- speed number + gauge -------------------------------------------------
+    // ---- speed number + knots + altimeter -------------------------------------
     const kmh = Math.max(0, Math.round(st.speed * 3.6));
     if (kmh !== this.lastSpeed) {
       this.lastSpeed = kmh;
       this.speedNum.textContent = String(kmh);
+    }
+    const knots = Math.max(0, Math.round(st.speed * 1.944));
+    if (knots !== this.lastKnots) {
+      this.lastKnots = knots;
+      this.speedKnots.textContent = `${knots} KTS`;
+    }
+
+    // ---- altimeter & aerodynamic flow -----------------------------------------
+    const alt = Math.max(0, st.flightClearance);
+    const altStr = alt < 9.95 ? alt.toFixed(1) : Math.round(alt).toFixed(0);
+    if (altStr !== this.lastAltStr) {
+      this.lastAltStr = altStr;
+      this.altVal.textContent = altStr;
+    }
+
+    let altZoneText = '水面';
+    let altZoneCls = 'surface';
+    if (st.flightPhase !== 'surface' || alt > 0.4) {
+      if (st.groundEffect > 0.08 || (alt >= 0.2 && alt <= 3.2)) {
+        altZoneText = '掠海气垫';
+        altZoneCls = 'wig';
+      } else if (alt > 3.2 && alt <= 22) {
+        altZoneText = '巡航滑翔';
+        altZoneCls = 'glide';
+      } else {
+        altZoneText = '高空天梯';
+        altZoneCls = 'apex';
+      }
+    }
+    if (altZoneText !== this.lastAltZone) {
+      this.lastAltZone = altZoneText;
+      this.altZone.textContent = altZoneText;
+      this.altZone.className = `hud-alt-zone ${altZoneCls}`;
+    }
+
+    let aeroText = '';
+    let aeroCls = '';
+    if (st.thermalUpdraft > 0.15) {
+      aeroText = 'THERMAL ↑';
+      aeroCls = 'thermal';
+    } else if (st.windTunnelBoost > 0.15) {
+      aeroText = 'STREAM ⇶';
+      aeroCls = 'tunnel';
+    } else if (st.flightAirBrake > 0.25) {
+      aeroText = 'AIR-BRAKE ▼';
+      aeroCls = 'airbrake';
+    } else if (st.flightPhase !== 'surface' && alt > 2.2) {
+      if (st.longG < -3.6) {
+        aeroText = this.controlDevice === 'mobile' ? '俯冲加速 ⇲' : 'DIVE [W] ⇲';
+        aeroCls = 'dive';
+      } else if (st.longG > 3.6) {
+        aeroText = this.controlDevice === 'mobile' ? '仰冲爬升 ⇱' : 'CLIMB [S] ⇱';
+        aeroCls = 'climb';
+      }
+    }
+    if (aeroText !== this.lastAltAero) {
+      this.lastAltAero = aeroText;
+      this.altAero.textContent = aeroText;
+      this.altAero.className = `hud-alt-aero ${aeroCls}`;
+      this.altAero.classList.toggle('on', aeroText.length > 0);
+    }
+
+    // ---- ground resonance progress --------------------------------------------
+    const resActive = st.groundResonance > 0.05 || st.groundResonanceCharge > 0.01;
+    if (resActive !== this.lastResonanceActive) {
+      this.lastResonanceActive = resActive;
+      this.resonanceTrack.classList.toggle('on', resActive);
+    }
+    const resPct = Math.min(100, Math.max(0, Math.round(st.groundResonanceCharge * 100)));
+    if (resPct !== this.lastResonancePct) {
+      this.lastResonancePct = resPct;
+      this.resonanceFill.style.width = `${resPct}%`;
+      this.resonanceTrack.classList.toggle('charging', st.groundResonance > 0.1);
     }
     // ---- lap / final lap / position / wrong way ---------------------------------
     if (me) {
@@ -1230,8 +1336,8 @@ export class HUD {
 
     const compact = innerWidth <= 900 || innerHeight <= 520;
     let cardWidth = compact ? Math.min(320, Math.max(236, bounds.width - 172)) : Math.min(390, bounds.width - 32);
-    const cardHeight = compact ? 124 : 142;
-    const safe = compact ? 12 : 20;
+    const cardHeight = compact ? 104 : 142;
+    const safe = compact ? 8 : 20;
     const targetCx = left + width * 0.5;
     const targetCy = top + height * 0.5;
     let cardLeft = compact ? safe : bounds.width - cardWidth - safe;

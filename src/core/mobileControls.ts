@@ -16,11 +16,12 @@ const ZERO: BoatInput = {
 };
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
-const CALIBRATION_MS = 300;
+const CALIBRATION_MS = 180;
 const SENSOR_TIMEOUT_MS = 1500;
-const MIN_CALIBRATION_SAMPLES = 6;
+const MIN_CALIBRATION_SAMPLES = 4;
+const JOYSTICK_MAX_RADIUS = 50;
 
-/** Landscape mobile controls with touch steering and opt-in tilt calibration. */
+/** Landscape mobile controls with floating compass joystick and opt-in tilt calibration. */
 export class MobileControls {
   readonly enabled: boolean;
 
@@ -32,6 +33,8 @@ export class MobileControls {
   private readonly flightLabel: HTMLElement | null;
   private readonly flightSubLabel: HTMLElement | null;
   private readonly tiltMeter: HTMLDivElement | null;
+  private readonly joystick: HTMLDivElement | null;
+  private readonly joystickKnob: HTMLDivElement | null;
   private readonly onFirstGesture: () => void;
   private readonly activePointers = new Map<number, PointerAction>();
   private readonly buttons = new Map<PointerAction, HTMLButtonElement>();
@@ -49,6 +52,13 @@ export class MobileControls {
   private rawTilt = 0;
   private filteredTilt = 0;
   private touchSteer = 0;
+  private touchPitch = 0;
+  private joystickPointerId: number | null = null;
+  private joystickOriginX = 0;
+  private joystickOriginY = 0;
+  private joystickX = 0;
+  private joystickY = 0;
+  private joystickActive = false;
   private flightQueued = false;
   private anyPressQueued = false;
   private goQueued = false;
@@ -77,7 +87,7 @@ export class MobileControls {
 
   controlLabels(): { steer: string; drift: string; flight: string } {
     return {
-      steer: this.mode === 'tilt' ? '倾斜手机' : '左侧方向区',
+      steer: this.mode === 'tilt' ? '倾斜手机' : '左侧罗盘摇杆',
       drift: '右下「漂」',
       flight: '右上「飞」',
     };
@@ -95,6 +105,8 @@ export class MobileControls {
       this.flightLabel = null;
       this.flightSubLabel = null;
       this.tiltMeter = null;
+      this.joystick = null;
+      this.joystickKnob = null;
       return;
     }
 
@@ -110,6 +122,22 @@ export class MobileControls {
       <button class="mobile-start" type="button">开始游戏</button>
       <button class="mobile-mode" type="button" aria-label="当前触控转向，点击切换重力">转向 · 触控</button>
       <div class="mobile-tilt-meter" aria-hidden="true"><i></i></div>
+      <div class="mobile-joystick" aria-hidden="true">
+        <div class="mobile-joystick-base">
+          <div class="mobile-joystick-ring"></div>
+          <div class="mobile-joystick-compass-dial">
+            <span class="compass-mark n">▲</span>
+            <span class="compass-mark s">▼</span>
+            <span class="compass-mark w">◀</span>
+            <span class="compass-mark e">▶</span>
+            <div class="compass-cross"></div>
+          </div>
+          <div class="mobile-joystick-knob">
+            <div class="knob-gem"></div>
+            <div class="knob-ring"></div>
+          </div>
+        </div>
+      </div>
       <div class="mobile-steer-zones" aria-label="触控转向">
         <button type="button" data-mobile-action="left" aria-label="左转"><span><b>‹</b><small>LEFT</small></span></button>
         <button type="button" data-mobile-action="right" aria-label="右转"><span><b>›</b><small>RIGHT</small></span></button>
@@ -128,6 +156,8 @@ export class MobileControls {
     this.flightLabel = root.querySelector<HTMLElement>('[data-mobile-action="flight"] b');
     this.flightSubLabel = root.querySelector<HTMLElement>('[data-mobile-action="flight"] small');
     this.tiltMeter = root.querySelector<HTMLDivElement>('.mobile-tilt-meter i');
+    this.joystick = root.querySelector<HTMLDivElement>('.mobile-joystick');
+    this.joystickKnob = root.querySelector<HTMLDivElement>('.mobile-joystick-knob');
 
     this.start?.addEventListener('click', () => {
       this.requestGo();
@@ -136,8 +166,9 @@ export class MobileControls {
       this.requestImmersiveFromGesture();
       if (this.mode === 'touch') {
         void this.activateTilt();
+      } else {
+        this.useTouch();
       }
-      else this.useTouch();
     });
 
     root.querySelectorAll<HTMLButtonElement>('[data-mobile-action]').forEach((button) => {
@@ -150,6 +181,11 @@ export class MobileControls {
       button.addEventListener('contextmenu', (event) => event.preventDefault());
     });
 
+    // Window pointermove & pointerup listeners for fluid floating joystick tracking
+    window.addEventListener('pointermove', (event) => this.updateJoystick(event), { passive: true });
+    window.addEventListener('pointerup', (event) => this.stopJoystick(event), { passive: true });
+    window.addEventListener('pointercancel', (event) => this.stopJoystick(event), { passive: true });
+
     const orientationMedia = matchMedia('(orientation: landscape)');
     orientationMedia.addEventListener?.('change', () => this.orientationChanged());
     window.addEventListener('deviceorientation', (event) => this.orientation(event), { passive: true });
@@ -160,9 +196,15 @@ export class MobileControls {
       if (document.hidden) this.releaseAll();
       else if (this.mode === 'tilt' && this.tiltAuthorized) this.startCalibration();
     });
-    window.addEventListener('pointerdown', () => {
+    window.addEventListener('pointerdown', (event) => {
       this.anyPressQueued = true;
       this.requestImmersiveFromGesture();
+      // Allow touching anywhere in the left half to spawn the floating compass joystick
+      if (this.mode === 'touch' && this.controlPhase === 'racing' && this.activation === 'ready') {
+        if (event.clientX < window.innerWidth * 0.48 && this.joystickPointerId === null) {
+          this.startJoystick(event);
+        }
+      }
     }, { passive: true });
   }
 
@@ -194,10 +236,22 @@ export class MobileControls {
 
   read(dt: number, flightActive: boolean): BoatInput {
     if (!this.enabled || this.controlPhase !== 'racing' || this.activation !== 'ready') return ZERO;
+
     const leftHeld = this.hasAction('left');
     const rightHeld = this.hasAction('right');
-    const touchTarget = leftHeld === rightHeld ? 0 : leftHeld ? -1 : 1;
-    this.touchSteer = approach(this.touchSteer, touchTarget, 8 * dt);
+    let touchTarget = 0;
+    if (this.joystickActive) {
+      touchTarget = this.joystickX;
+    } else if (leftHeld || rightHeld) {
+      touchTarget = leftHeld === rightHeld ? 0 : leftHeld ? -1 : 1;
+    }
+    this.touchSteer = approach(this.touchSteer, touchTarget, 10 * dt);
+
+    if (this.joystickActive) {
+      this.touchPitch = approach(this.touchPitch, this.joystickY, 10 * dt);
+    } else {
+      this.touchPitch = approach(this.touchPitch, 0, 8 * dt);
+    }
 
     const response = 1 - Math.exp(-dt / 0.12);
     this.filteredTilt += (this.rawTilt - this.filteredTilt) * response;
@@ -217,12 +271,14 @@ export class MobileControls {
     this.flightQueued = false;
     if (this.driftLabel) this.driftLabel.textContent = flightActive ? '空刹' : this.finalMode ? '刹' : '漂';
     if (this.driftSubLabel) this.driftSubLabel.textContent = flightActive ? 'AIR BRAKE' : this.finalMode ? 'BRAKE' : 'DRIFT';
+
+    const joystickPullBrake = flightActive && this.joystickActive && this.touchPitch < -0.65;
     return {
       throttle: 1,
       steer,
       drift: action && !flightActive && !this.finalMode,
       flightTrigger: this.finalMode ? false : flightTrigger,
-      airBrake: action && (flightActive || this.finalMode),
+      airBrake: (action || joystickPullBrake) && (flightActive || this.finalMode),
     };
   }
 
@@ -339,6 +395,7 @@ export class MobileControls {
     this.anyPressQueued = false;
     this.goQueued = false;
     this.touchSteer = 0;
+    this.touchPitch = 0;
     this.filteredTilt = 0;
     this.previousTiltActivity = 0;
   }
@@ -374,6 +431,62 @@ export class MobileControls {
       landscape: this.landscape,
       fullscreenRequests: this.fullscreenRequests,
     };
+  }
+
+  private startJoystick(event: PointerEvent): void {
+    if (this.mode !== 'touch') return;
+    if (this.controlPhase === 'inactive' || this.activation !== 'ready') return;
+    if (this.joystickPointerId !== null) return;
+    this.joystickPointerId = event.pointerId;
+    this.joystickOriginX = event.clientX;
+    this.joystickOriginY = event.clientY;
+    this.joystickX = 0;
+    this.joystickY = 0;
+    this.joystickActive = true;
+    if (this.joystick) {
+      this.joystick.style.left = `${this.joystickOriginX}px`;
+      this.joystick.style.top = `${this.joystickOriginY}px`;
+      this.joystick.classList.add('active');
+      if (this.joystickKnob) {
+        this.joystickKnob.style.transition = 'none';
+        this.joystickKnob.style.transform = 'translate(0px, 0px)';
+      }
+    }
+  }
+
+  private updateJoystick(event: PointerEvent): void {
+    if (!this.joystickActive || event.pointerId !== this.joystickPointerId) return;
+    const rawDx = event.clientX - this.joystickOriginX;
+    const rawDy = event.clientY - this.joystickOriginY;
+    const dist = Math.hypot(rawDx, rawDy);
+    const clampedDist = Math.min(dist, JOYSTICK_MAX_RADIUS);
+    const nx = dist > 1e-4 ? (rawDx / dist) : 0;
+    const ny = dist > 1e-4 ? (rawDy / dist) : 0;
+    const targetX = nx * clampedDist;
+    const targetY = ny * clampedDist;
+    this.joystickX = targetX / JOYSTICK_MAX_RADIUS; // -1 (left) .. 1 (right)
+    this.joystickY = -targetY / JOYSTICK_MAX_RADIUS; // 1 (forward/dive) .. -1 (pull back/climb)
+    if (this.joystickKnob) {
+      this.joystickKnob.style.transform = `translate(${targetX.toFixed(1)}px, ${targetY.toFixed(1)}px)`;
+    }
+    if (Math.abs(this.joystickX) >= 0.25 || Math.abs(this.joystickY) >= 0.25) {
+      this.activitySerialValue++;
+    }
+  }
+
+  private stopJoystick(event?: PointerEvent): void {
+    if (event && this.joystickPointerId !== null && event.pointerId !== this.joystickPointerId) return;
+    this.joystickPointerId = null;
+    this.joystickActive = false;
+    this.joystickX = 0;
+    this.joystickY = 0;
+    if (this.joystickKnob) {
+      this.joystickKnob.style.transition = 'transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      this.joystickKnob.style.transform = 'translate(0px, 0px)';
+    }
+    if (this.joystick) {
+      this.joystick.classList.remove('active');
+    }
   }
 
   private async activateTilt(): Promise<void> {
@@ -545,12 +658,18 @@ export class MobileControls {
       // Window blur/visibility and the element's pointerup/cancel still release it.
     }
     if (action === 'flight') this.flightQueued = true;
+    if (action === 'left' || action === 'right') {
+      this.startJoystick(event);
+    }
     this.syncHeldButtons();
   }
 
   private pointerUp(event: PointerEvent): void {
     this.activePointers.delete(event.pointerId);
     this.syncHeldButtons();
+    if (event.pointerId === this.joystickPointerId) {
+      this.stopJoystick(event);
+    }
   }
 
   private syncHeldButtons(): void {
@@ -565,7 +684,9 @@ export class MobileControls {
   private releaseAll(): void {
     this.activePointers.clear();
     this.syncHeldButtons();
+    this.stopJoystick();
     this.touchSteer = 0;
+    this.touchPitch = 0;
   }
 }
 

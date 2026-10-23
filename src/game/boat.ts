@@ -19,12 +19,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LAYER_ENERGY, markInk } from '../contracts';
-import type { BoatInput, BoatState, FlightFailureSnapshot, FlightPhase, IBoat, IJetTrail, IWake, ISpray } from '../contracts';
+import type { BoatInput, BoatState, CourseSample, FlightFailureSnapshot, FlightPhase, IBoat, ICourse, IJetTrail, IWake, ISpray } from '../contracts';
 import { PALETTE } from '../core/palette';
 import { waterHeight, waterNormalInto } from '../water/waves';
 import { createToonMaterial } from '../cel/toonMaterial';
 import { addOutline } from '../cel/outline';
 import type { DriverHandling } from './racers';
+export { Rider } from './rider';
 
 export interface BoatOptions {
   id: number;
@@ -32,7 +33,9 @@ export interface BoatOptions {
   wake: IWake;
   spray: ISpray;
   trail: IJetTrail;
+  course?: ICourse;
   detailedInk?: boolean;
+  driverId?: string;
 }
 
 // ---------------------------------------------------------------- tuning ----
@@ -80,23 +83,66 @@ const TUNING = {
   returnBrakeTargetSpeed: 18,
   returnBrakeDecel: 28,
 
-  // -- earned anti-grav flight --
-  flightSpool: 0.12,
-  flightAscend: 0.48,
-  flightCruise: 5.10,
-  flightExtension: 2.40,
+  // -- earned glider flight & aerodynamics (Task 8.1) --
+  flightSpool: 0.08,
+  flightAscend: 0.42,
+  flightCruise: 5.40,
+  flightExtension: 2.60,
   flightDescend: 0.75,
   flightClearance: 4.5,  // hull-root height above the live mean water surface
   flightLandingLead: 0.45, // counter moving-wave lag so the landing envelope seats cleanly
-  flightOmega: 9,        // critically damped vertical target tracking
-  flightAccelMax: 54,    // m/s², keeps a late launch from snapping vertically
-  flightDriveAccel: 22,
-  flightDriveGain: 3.2,
-  flightHardCap: 50,
+  flightHardCap: 56,
+  flightOmega: 14,         // rad/s, critically damped vertical tracking frequency
+  flightAccelMax: 72,      // m/s², max vertical tracking acceleration
   flightDescentSpeed: 36,
-  flightMissSpeedMul: 0.7,
-  flightMissDriveMul: 0.3,
-  flightMissDriveTime: 1.0,
+  flightMissSpeedMul: 0.92,
+  flightMissDriveMul: 0.88,
+  flightMissDriveTime: 0.35,
+
+  // -- glider aerodynamics core --
+  glideRatio: 10.5,        // Lift/Drag ratio in neutral glide (~10.5:1)
+  wingArea: 6.8,           // Effective canvas wing reference area, m²
+  airDensity: 1.225,       // Standard sea-level air density, kg/m³
+  gliderMass: 420,         // Glider mass, kg
+  liftCoeff0: 0.32,        // Base camber lift coefficient at zero AoA
+  liftSlope: 5.0,          // dCL/d(alpha) lift curve slope (per radian)
+  stallAngle: 0.30,        // Stall angle of attack (rad, ~17.2 deg)
+  stallLiftDrop: 0.65,     // Post-stall lift retention factor
+  dragCoeff0: 0.030,       // Zero-lift parasite drag coefficient
+  inducedDragK: 0.042,     // Induced drag factor k * CL^2
+  airBrakeDragCoeff: 0.32, // Additional drag coefficient when air-brake is engaged
+  divePitchMax: 0.36,      // Max nose-down pitch command in dive (rad, ~20.6 deg)
+  climbPitchMax: 0.40,     // Max nose-up pitch command in climb (rad, ~22.9 deg)
+  neutralPitchTrim: -0.035,// Natural slight nose-down trim for steady gliding (rad, ~-2 deg)
+  pitchControlRate: 8.5,   // Pitch target convergence rate (1/s)
+  glideSinkRate: 0.95,     // Natural sinking speed in steady level glide (m/s)
+  diveSpeedCap: 56,        // Max forward speed achieved from steep dive conversion (m/s)
+  climbSpeedDrain: 14.0,   // Rate of kinetic speed drainage during steep climb (m/s²)
+  flightMaxAlt: 18.0,      // Max aerodynamic flight ceiling above water surface (m)
+  airLateralDamping: 4.5,  // Lateral slip damping in flight (1/s)
+
+  // -- ground effect & proximity resonance (Task 8.2) --
+  groundEffectSpan: 3.8,      // Effective canvas wingspan for WIG (meters)
+  groundEffectMinAlt: 0.25,   // Min clearance altitude to avoid ocean floor overlap (m)
+  groundEffectMaxAlt: 3.2,    // Max clearance altitude for ground effect (m)
+  groundEffectPeakAltLo: 0.9, // Lower bound for peak ground effect resonance (m)
+  groundEffectPeakAltHi: 2.2, // Upper bound for peak ground effect resonance (m)
+  groundEffectLiftMul: 0.32,  // Max lift coefficient boost from ram-air cushion (+32%)
+  groundEffectDragCut: 0.52,  // Max induced drag reduction factor (-52%)
+  groundEffectCushionK: 4.8,  // Soft spring anti-sink cushioning acceleration (m/s²)
+  groundEffectThrustMul: 1.14,// Forward thrust / speed efficiency multiplier in ground effect
+  groundResonanceSpeedMin: 20,// Min forward speed for proximity resonance charging (m/s)
+  groundResonanceRate: 0.85,  // Charge buildup rate per second during sustained low skimming (1/s)
+  groundEffectTrailPeriod: 0.05, // Particle emission period for surface wind vortices (s)
+  groundAutoLevelAlt: 3.0,     // Clearance altitude threshold for ground auto-level & air cushion (m)
+  groundAutoLevelFlare: 0.02,  // Gentle positive pitch flare angle in ground proximity (rad)
+  groundCushionSinkDamp: 4.2,  // Aerodynamic ram air cushion sink damping rate (1/s)
+
+  // -- thermal updrafts & wind tunnels (Task 8.3) --
+  thermalCouplingK: 4.8,       // Vertical acceleration coupling rate to thermal column lift (1/s)
+  thermalExtendRate: 0.75,     // Rate at which thermal updraft restores/extends flight duration (s/s)
+  windTunnelBoostMul: 1.45,    // Slingshot velocity boost factor
+  windTunnelDragCut: 0.72,     // Induced drag reduction inside wind tunnel (-72%)
 
   // -- buoyancy --
   gravity: 9.8,
@@ -155,6 +201,13 @@ const _fxLiftDirs = [
 const _fxQLifts = _fxLiftDirs.map((dir) =>
   new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
 const _fxColor = new THREE.Color();
+const _guideSample: CourseSample = {
+  u: 0,
+  distance: 0,
+  point: new THREE.Vector3(),
+  tangent: new THREE.Vector3(),
+  routeId: 'surface',
+};
 
 // ------------------------------------------------------------ blob shadow ----
 // Hard-edged ink ellipse riding the water surface under each hull. Pins the
@@ -1077,7 +1130,31 @@ function mergeMeshParts(parts: THREE.BufferGeometry[], mat: THREE.Material): THR
   return new THREE.Mesh(merged, mat);
 }
 
-function buildGliderWingAssembly(
+// ------------------------------------------------------------ 6 Distinct Pilots' Craft Visuals ----
+
+interface ExtraAnimatedParts {
+  pinwheels?: THREE.Object3D[];
+  baguaRing?: THREE.Object3D;
+  canards?: THREE.Object3D[];
+  nozzles?: THREE.Object3D[];
+}
+
+interface BoatVisualAssembly {
+  root: THREE.Group;
+  riderMount: THREE.Object3D;
+  hullMaterial: THREE.ShaderMaterial;
+  portWing: THREE.Group;
+  stbdWing: THREE.Group;
+  portRotorPylon: THREE.Group;
+  stbdRotorPylon: THREE.Group;
+  portRotorBlades: THREE.Group;
+  stbdRotorBlades: THREE.Group;
+  extra?: ExtraAnimatedParts;
+}
+
+// ------------------------------------------------------------ Pilot 1: 苏轼 · 晴空信天翁 (Classic Gull Wing) ----
+
+function buildSushiWingAssembly(
   side: 1 | -1,
   woodMat: THREE.Material,
   darkWoodMat: THREE.Material,
@@ -1088,7 +1165,7 @@ function buildGliderWingAssembly(
   wingGroup.name = side > 0 ? 'portWing' : 'stbdWing';
   wingGroup.position.set(side * 0.58, 0.74, -0.55);
 
-  // 1. Double-sided Canvas Sail
+  // 1. Double-sided Cotton Canvas Sail
   const canvasMesh = new THREE.Mesh(buildGliderCanvasWingGeometry(side), canvasMat);
   wingGroup.add(canvasMesh);
 
@@ -1103,7 +1180,7 @@ function buildGliderWingAssembly(
     wingGroup.add(darkWoodMesh);
   }
 
-  // 3. Polished Brass Parts
+  // 3. Polished Brass Leading Edge & Wingtip Feathers
   const brassParts: THREE.BufferGeometry[] = [
     buildGliderWingLeadingEdgeGeometry(side),
     buildGliderWingTipFeathersGeometry(side),
@@ -1132,11 +1209,9 @@ function buildRotorAssembly(
   pylon.name = side > 0 ? 'portRotorPylon' : 'stbdRotorPylon';
   pylon.position.set(side * 0.68, 0.76, -1.62);
 
-  // Base mounting pedestal on the deck
   const pylonWoodMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.16), darkWoodMat);
   pylon.add(pylonWoodMesh);
 
-  // Pylon brass collar, mast, gearbox
   const pylonBrassParts: THREE.BufferGeometry[] = [
     place(new THREE.CylinderGeometry(0.048, 0.058, 0.05, 12), 0, 0.04, 0),
     place(new THREE.CylinderGeometry(0.032, 0.038, 0.26, 12), 0, 0.14, 0),
@@ -1148,7 +1223,6 @@ function buildRotorAssembly(
     pylon.add(pylonBrassMesh);
   }
 
-  // Rotor blades group (rotates around Y axis)
   const blades = new THREE.Group();
   blades.name = side > 0 ? 'portRotorBlades' : 'stbdRotorBlades';
   blades.position.set(0, 0.31, 0);
@@ -1156,8 +1230,8 @@ function buildRotorAssembly(
   const bladeWoodParts: THREE.BufferGeometry[] = [];
   const bladeDarkWoodParts: THREE.BufferGeometry[] = [];
   const bladeBrassParts: THREE.BufferGeometry[] = [
-    normalizeGeo(new THREE.CylinderGeometry(0.058, 0.058, 0.04, 14)), // hub
-    place(new THREE.ConeGeometry(0.048, 0.07, 14), 0, 0.045, 0), // spinner
+    normalizeGeo(new THREE.CylinderGeometry(0.058, 0.058, 0.04, 14)),
+    place(new THREE.ConeGeometry(0.048, 0.07, 14), 0, 0.045, 0),
   ];
 
   const bladeGeo = buildRotorBladeGeometry();
@@ -1184,25 +1258,788 @@ function buildRotorAssembly(
   }
 
   pylon.add(blades);
-
   return { pylon, blades };
 }
 
-// ------------------------------------------------------------ assembly ----
+// ------------------------------------------------------------ Pilot 2: 清照 · 风谷蜻蜓 (Twin-Boom Translucent Mesh Dragonfly) ----
 
-interface BoatVisualAssembly {
-  root: THREE.Group;
-  riderMount: THREE.Object3D;
-  hullMaterial: THREE.ShaderMaterial;
-  portWing: THREE.Group;
-  stbdWing: THREE.Group;
-  portRotorPylon: THREE.Group;
-  stbdRotorPylon: THREE.Group;
-  portRotorBlades: THREE.Group;
-  stbdRotorBlades: THREE.Group;
+function buildDragonflyWingMeshGeometry(side: 1 | -1): THREE.BufferGeometry {
+  const stations = [
+    { span: 0.08, leZ: 0.32, teZ: -0.22, chord: 0.54, camber: 0.038, thick: 0.016 },
+    { span: 0.55, leZ: 0.22, teZ: -0.26, chord: 0.48, camber: 0.042, thick: 0.014 },
+    { span: 1.10, leZ: 0.08, teZ: -0.28, chord: 0.36, camber: 0.036, thick: 0.012 },
+    { span: 1.60, leZ: -0.08, teZ: -0.26, chord: 0.18, camber: 0.024, thick: 0.009 },
+    { span: 1.95, leZ: -0.22, teZ: -0.30, chord: 0.08, camber: 0.014, thick: 0.006 },
+  ];
+  const pos: number[] = [];
+  const stationPts: [number, number, number][][] = [];
+  for (let i = 0; i < stations.length; i++) {
+    const s = stations[i];
+    const x = side * s.span;
+    const pts: [number, number, number][] = [
+      [x, 0, s.leZ],
+      [x, s.camber * 0.75 + s.thick * 0.5, s.leZ - s.chord * 0.22],
+      [x, s.camber + s.thick * 0.5, s.leZ - s.chord * 0.45],
+      [x, s.camber * 0.5 + s.thick * 0.3, s.leZ - s.chord * 0.75],
+      [x, 0, s.teZ],
+      [x, s.camber * 0.2 - s.thick * 0.3, s.leZ - s.chord * 0.75],
+      [x, s.camber * 0.35 - s.thick * 0.5, s.leZ - s.chord * 0.45],
+      [x, s.camber * 0.2 - s.thick * 0.5, s.leZ - s.chord * 0.22],
+    ];
+    stationPts.push(pts);
+  }
+  for (let i = 0; i < stations.length - 1; i++) {
+    const curr = stationPts[i];
+    const next = stationPts[i + 1];
+    for (let j = 0; j < 8; j++) {
+      const j2 = (j + 1) % 8;
+      const c0 = curr[j];
+      const c1 = curr[j2];
+      const n0 = next[j];
+      const n1 = next[j2];
+      if (side > 0) {
+        pos.push(c0[0], c0[1], c0[2], n0[0], n0[1], n0[2], n1[0], n1[1], n1[2]);
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], c1[0], c1[1], c1[2]);
+      } else {
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], n0[0], n0[1], n0[2]);
+        pos.push(c0[0], c0[1], c0[2], c1[0], c1[1], c1[2], n1[0], n1[1], n1[2]);
+      }
+    }
+  }
+  pushCap(pos, stationPts[stations.length - 1], side < 0);
+  pushCap(pos, stationPts[0], side > 0);
+  return flatGeometry(pos);
 }
 
-function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
+function buildDragonflyTwinBoomsGeometry(side: 1 | -1): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [
+    // Outrigger boom tube
+    place(new THREE.CylinderGeometry(0.024, 0.018, 2.35, 8), side * 0.65, 0.58, -1.65, Math.PI / 2, 0, 0),
+    // Vertical tail fin / rudder
+    place(new THREE.BoxGeometry(0.02, 0.52, 0.38), side * 0.65, 0.78, -2.75, 0.12, 0, 0),
+    // Horizontal stabilizer fin
+    place(new THREE.BoxGeometry(0.32, 0.02, 0.22), side * 0.58, 0.98, -2.75),
+    // Structural diagonal truss
+    place(new THREE.CylinderGeometry(0.012, 0.012, 0.78, 6), side * 0.35, 0.62, -1.1, 0, 0, side * 0.55),
+  ];
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildQingzhaoWingAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  dragonflyMat: THREE.Material,
+): THREE.Group {
+  const wingGroup = new THREE.Group();
+  wingGroup.name = side > 0 ? 'portWing' : 'stbdWing';
+  wingGroup.position.set(side * 0.55, 0.74, -0.55);
+
+  // 1. Translucent cyan mesh wing membrane
+  const meshWing = new THREE.Mesh(buildDragonflyWingMeshGeometry(side), dragonflyMat);
+  meshWing.userData.noOutline = true;
+  wingGroup.add(meshWing);
+
+  // 2. Carbon-wood frame ribs & main leading edge spar
+  const sparParts: THREE.BufferGeometry[] = [
+    place(new THREE.CylinderGeometry(0.022, 0.014, 1.95, 8), side * 0.98, 0.015, 0.06, 0, 0, -side * 0.12),
+    place(new THREE.BoxGeometry(0.018, 0.022, 0.42), side * 0.45, 0.01, -0.02),
+    place(new THREE.BoxGeometry(0.016, 0.018, 0.34), side * 0.95, 0.01, -0.08),
+    place(new THREE.BoxGeometry(0.014, 0.016, 0.24), side * 1.45, 0.01, -0.16),
+  ];
+  const sparMesh = mergeMeshParts(sparParts, darkWoodMat);
+  if (sparMesh) {
+    sparMesh.userData.noOutline = true;
+    wingGroup.add(sparMesh);
+  }
+
+  // 3. Delicate brass joint caps & wingtip needle
+  const brassParts: THREE.BufferGeometry[] = [
+    place(new THREE.CylinderGeometry(0.008, 0.002, 0.32, 6), side * 1.95, 0.0, -0.26, Math.PI / 2, 0, side * 0.2),
+    place(new THREE.SphereGeometry(0.024, 8, 8), 0, 0, 0),
+  ];
+  const brassMesh = mergeMeshParts(brassParts, brassMat);
+  if (brassMesh) {
+    brassMesh.userData.noOutline = true;
+    wingGroup.add(brassMesh);
+  }
+
+  return wingGroup;
+}
+
+function buildDragonflyDuctedRotorAssembly(
+  side: 1 | -1,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  dragonflyMat: THREE.Material,
+): {
+  pylon: THREE.Group;
+  blades: THREE.Group;
+} {
+  const pylon = new THREE.Group();
+  pylon.name = side > 0 ? 'portRotorPylon' : 'stbdRotorPylon';
+  pylon.position.set(side * 0.65, 0.76, -1.62);
+
+  // Carbon-wood streamlined nacelle ring duct
+  const ductParts: THREE.BufferGeometry[] = [
+    place(new THREE.CylinderGeometry(0.38, 0.36, 0.16, 16, 1, true), 0, 0.32, 0),
+    place(new THREE.CylinderGeometry(0.038, 0.046, 0.28, 8), 0, 0.14, 0),
+  ];
+  const ductMesh = mergeMeshParts(ductParts, darkWoodMat);
+  if (ductMesh) {
+    ductMesh.userData.noOutline = true;
+    pylon.add(ductMesh);
+  }
+
+  const brassCollar = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.016, 6, 16), brassMat);
+  brassCollar.position.set(0, 0.38, 0);
+  brassCollar.rotation.x = Math.PI / 2;
+  brassCollar.userData.noOutline = true;
+  pylon.add(brassCollar);
+
+  const blades = new THREE.Group();
+  blades.name = side > 0 ? 'portRotorBlades' : 'stbdRotorBlades';
+  blades.position.set(0, 0.32, 0);
+
+  const bladeParts: THREE.BufferGeometry[] = [
+    place(new THREE.SphereGeometry(0.048, 8, 8), 0, 0, 0),
+  ];
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI * 2) / 4;
+    bladeParts.push(place(new THREE.BoxGeometry(0.014, 0.038, 0.32), 0.16 * Math.cos(a), 0, 0.16 * Math.sin(a), 0, a + 0.35, 0));
+  }
+  const bladesMesh = mergeMeshParts(bladeParts, dragonflyMat);
+  if (bladesMesh) blades.add(bladesMesh);
+
+  pylon.add(blades);
+  return { pylon, blades };
+}
+
+// ------------------------------------------------------------ Pilot 3: 萧峰 · 赤炎狂龙 (Forward-Swept Dragon Wing & Solar PV & Twin Jet Nozzles) ----
+
+function buildForwardSweptDragonWingGeometry(side: 1 | -1): THREE.BufferGeometry {
+  const stations = [
+    { span: 0.08, leZ: 0.18, teZ: -0.42, chord: 0.60, camber: 0.032, thick: 0.022 },
+    { span: 0.50, leZ: 0.28, teZ: -0.32, chord: 0.60, camber: 0.035, thick: 0.018 },
+    { span: 0.95, leZ: 0.42, teZ: -0.16, chord: 0.58, camber: 0.038, thick: 0.015 },
+    { span: 1.45, leZ: 0.56, teZ: 0.08, chord: 0.48, camber: 0.030, thick: 0.012 },
+    { span: 1.85, leZ: 0.68, teZ: 0.38, chord: 0.30, camber: 0.018, thick: 0.008 },
+  ];
+  const pos: number[] = [];
+  const stationPts: [number, number, number][][] = [];
+  for (let i = 0; i < stations.length; i++) {
+    const s = stations[i];
+    const x = side * s.span;
+    const pts: [number, number, number][] = [
+      [x, 0, s.leZ],
+      [x, s.camber * 0.7 + s.thick * 0.5, s.leZ - s.chord * 0.2],
+      [x, s.camber + s.thick * 0.5, s.leZ - s.chord * 0.4],
+      [x, s.camber * 0.5 + s.thick * 0.3, s.leZ - s.chord * 0.7],
+      [x, 0, s.teZ],
+      [x, s.camber * 0.2 - s.thick * 0.3, s.leZ - s.chord * 0.7],
+      [x, s.camber * 0.35 - s.thick * 0.5, s.leZ - s.chord * 0.4],
+      [x, s.camber * 0.2 - s.thick * 0.5, s.leZ - s.chord * 0.2],
+    ];
+    stationPts.push(pts);
+  }
+  for (let i = 0; i < stations.length - 1; i++) {
+    const curr = stationPts[i];
+    const next = stationPts[i + 1];
+    for (let j = 0; j < 8; j++) {
+      const j2 = (j + 1) % 8;
+      const c0 = curr[j];
+      const c1 = curr[j2];
+      const n0 = next[j];
+      const n1 = next[j2];
+      if (side > 0) {
+        pos.push(c0[0], c0[1], c0[2], n0[0], n0[1], n0[2], n1[0], n1[1], n1[2]);
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], c1[0], c1[1], c1[2]);
+      } else {
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], n0[0], n0[1], n0[2]);
+        pos.push(c0[0], c0[1], c0[2], c1[0], c1[1], c1[2], n1[0], n1[1], n1[2]);
+      }
+    }
+  }
+  pushCap(pos, stationPts[stations.length - 1], side < 0);
+  pushCap(pos, stationPts[0], side > 0);
+  return flatGeometry(pos);
+}
+
+function buildSolarPVPanelsGeometry(side: 1 | -1): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [
+    // 3 Inlaid hexagonal/rectangular solar cell tiles on upper wing surface
+    place(new THREE.BoxGeometry(0.35, 0.015, 0.32), side * 0.52, 0.042, -0.02),
+    place(new THREE.BoxGeometry(0.38, 0.015, 0.30), side * 0.98, 0.045, 0.12),
+    place(new THREE.BoxGeometry(0.32, 0.015, 0.24), side * 1.45, 0.038, 0.30),
+  ];
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildXiaofengWingAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  solarMat: THREE.Material,
+): THREE.Group {
+  const wingGroup = new THREE.Group();
+  wingGroup.name = side > 0 ? 'portWing' : 'stbdWing';
+  wingGroup.position.set(side * 0.58, 0.74, -0.55);
+
+  // 1. Forward-swept wing main structure
+  const wingMesh = new THREE.Mesh(buildForwardSweptDragonWingGeometry(side), darkWoodMat);
+  wingGroup.add(wingMesh);
+
+  // 2. Solar photovoltaic cell panels on top
+  const solarMesh = new THREE.Mesh(buildSolarPVPanelsGeometry(side), solarMat);
+  solarMesh.userData.noOutline = true;
+  wingGroup.add(solarMesh);
+
+  // 3. Angular brass strike fences and leading edge armor
+  const brassParts: THREE.BufferGeometry[] = [
+    place(new THREE.BoxGeometry(0.025, 0.08, 0.48), side * 1.85, 0.02, 0.42, 0, 0, side * 0.3),
+    place(new THREE.CylinderGeometry(0.018, 0.018, 1.85, 6), side * 0.95, 0.01, 0.42, 0, 0, side * 0.28),
+  ];
+  const brassMesh = mergeMeshParts(brassParts, brassMat);
+  if (brassMesh) {
+    brassMesh.userData.noOutline = true;
+    wingGroup.add(brassMesh);
+  }
+
+  return wingGroup;
+}
+
+function buildXiaofengTwinJetNozzlesGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    // Twin circular gathering combustion nacelles
+    parts.push(place(new THREE.CylinderGeometry(0.18, 0.22, 0.52, 16), side * 0.36, 0.54, -2.62, Math.PI / 2, 0, 0));
+    // Brass exhaust lip
+    parts.push(place(new THREE.TorusGeometry(0.19, 0.022, 8, 16), side * 0.36, 0.54, -2.88));
+    // 4 thrust vectoring vanes
+    for (let v = 0; v < 4; v++) {
+      const a = (v / 4) * Math.PI * 2;
+      parts.push(place(new THREE.BoxGeometry(0.018, 0.12, 0.18), side * 0.36 + 0.16 * Math.cos(a), 0.54 + 0.16 * Math.sin(a), -2.88, 0, 0, a));
+    }
+  }
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildXiaofengRotorAssembly(
+  side: 1 | -1,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  solarMat: THREE.Material,
+): {
+  pylon: THREE.Group;
+  blades: THREE.Group;
+} {
+  const pylon = new THREE.Group();
+  pylon.name = side > 0 ? 'portRotorPylon' : 'stbdRotorPylon';
+  pylon.position.set(side * 0.68, 0.76, -1.62);
+
+  const pylonBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.058, 0.32, 12), brassMat);
+  pylonBrass.position.set(0, 0.16, 0);
+  pylonBrass.userData.noOutline = true;
+  pylon.add(pylonBrass);
+
+  const blades = new THREE.Group();
+  blades.name = side > 0 ? 'portRotorBlades' : 'stbdRotorBlades';
+  blades.position.set(0, 0.32, 0);
+
+  const bladeParts: THREE.BufferGeometry[] = [
+    place(new THREE.ConeGeometry(0.058, 0.09, 12), 0, 0.045, 0),
+  ];
+  for (let i = 0; i < 3; i++) {
+    const a = (i * Math.PI * 2) / 3;
+    bladeParts.push(place(new THREE.BoxGeometry(0.022, 0.045, 0.38), 0.18 * Math.cos(a), 0, 0.18 * Math.sin(a), 0, a + 0.28, 0));
+  }
+  const bladesMesh = mergeMeshParts(bladeParts, solarMat);
+  if (bladesMesh) blades.add(bladesMesh);
+
+  pylon.add(blades);
+  return { pylon, blades };
+}
+
+// ------------------------------------------------------------ Pilot 4: 舟伯通 · 顽童重锤/旋转飞燕 (Catamaran Flagship & Heavy Paddle Rotors) ----
+
+function buildCatamaranTwinHullsGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    // Twin parallel pontoon hulls
+    parts.push(place(new THREE.BoxGeometry(0.38, 0.34, 4.6), side * 0.74, 0.26, -0.2));
+    parts.push(place(new THREE.ConeGeometry(0.24, 0.95, 12), side * 0.74, 0.32, 2.45, Math.PI / 2, 0, 0));
+  }
+  // Heavy arched timber bridge crossbeams
+  parts.push(place(new THREE.BoxGeometry(1.85, 0.12, 0.28), 0, 0.65, 0.85));
+  parts.push(place(new THREE.BoxGeometry(1.85, 0.12, 0.28), 0, 0.65, -0.65));
+  parts.push(place(new THREE.BoxGeometry(1.85, 0.12, 0.28), 0, 0.65, -2.15));
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildCatamaranBrassBumpersGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    // Bow heavy rounded brass rivet caps
+    parts.push(place(new THREE.SphereGeometry(0.26, 8, 8), side * 0.74, 0.32, 2.35));
+    // Stern brass bumper corner
+    parts.push(place(new THREE.BoxGeometry(0.42, 0.38, 0.18), side * 0.74, 0.28, -2.48));
+  }
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildZhoubotongWingGeometry(side: 1 | -1): THREE.BufferGeometry {
+  const stations = [
+    { span: 0.08, leZ: 0.42, teZ: -0.42, chord: 0.84, camber: 0.048, thick: 0.026 },
+    { span: 0.60, leZ: 0.40, teZ: -0.40, chord: 0.80, camber: 0.052, thick: 0.024 },
+    { span: 1.15, leZ: 0.36, teZ: -0.36, chord: 0.72, camber: 0.048, thick: 0.020 },
+    { span: 1.65, leZ: 0.28, teZ: -0.28, chord: 0.56, camber: 0.035, thick: 0.016 },
+  ];
+  const pos: number[] = [];
+  const stationPts: [number, number, number][][] = [];
+  for (let i = 0; i < stations.length; i++) {
+    const s = stations[i];
+    const x = side * s.span;
+    const pts: [number, number, number][] = [
+      [x, 0, s.leZ],
+      [x, s.camber * 0.75 + s.thick * 0.5, s.leZ - s.chord * 0.2],
+      [x, s.camber + s.thick * 0.5, s.leZ - s.chord * 0.4],
+      [x, s.camber * 0.55 + s.thick * 0.3, s.leZ - s.chord * 0.7],
+      [x, 0, s.teZ],
+      [x, s.camber * 0.2 - s.thick * 0.3, s.leZ - s.chord * 0.7],
+      [x, s.camber * 0.4 - s.thick * 0.5, s.leZ - s.chord * 0.4],
+      [x, s.camber * 0.22 - s.thick * 0.5, s.leZ - s.chord * 0.2],
+    ];
+    stationPts.push(pts);
+  }
+  for (let i = 0; i < stations.length - 1; i++) {
+    const curr = stationPts[i];
+    const next = stationPts[i + 1];
+    for (let j = 0; j < 8; j++) {
+      const j2 = (j + 1) % 8;
+      const c0 = curr[j];
+      const c1 = curr[j2];
+      const n0 = next[j];
+      const n1 = next[j2];
+      if (side > 0) {
+        pos.push(c0[0], c0[1], c0[2], n0[0], n0[1], n0[2], n1[0], n1[1], n1[2]);
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], c1[0], c1[1], c1[2]);
+      } else {
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], n0[0], n0[1], n0[2]);
+        pos.push(c0[0], c0[1], c0[2], c1[0], c1[1], c1[2], n1[0], n1[1], n1[2]);
+      }
+    }
+  }
+  pushCap(pos, stationPts[stations.length - 1], side < 0);
+  pushCap(pos, stationPts[0], side > 0);
+  return flatGeometry(pos);
+}
+
+function buildZhoubotongWingAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  canvasMat: THREE.Material,
+): THREE.Group {
+  const wingGroup = new THREE.Group();
+  wingGroup.name = side > 0 ? 'portWing' : 'stbdWing';
+  wingGroup.position.set(side * 0.68, 0.74, -0.55);
+
+  const canvasMesh = new THREE.Mesh(buildZhoubotongWingGeometry(side), canvasMat);
+  wingGroup.add(canvasMesh);
+
+  const darkWoodParts: THREE.BufferGeometry[] = [
+    place(new THREE.BoxGeometry(1.65, 0.045, 0.055), side * 0.82, 0.02, 0.18),
+    place(new THREE.BoxGeometry(1.65, 0.045, 0.055), side * 0.82, 0.02, -0.18),
+  ];
+  const darkWoodMesh = mergeMeshParts(darkWoodParts, darkWoodMat);
+  if (darkWoodMesh) wingGroup.add(darkWoodMesh);
+
+  const brassParts: THREE.BufferGeometry[] = [
+    place(new THREE.BoxGeometry(0.045, 0.12, 0.62), side * 1.65, 0.02, 0.0),
+  ];
+  const brassMesh = mergeMeshParts(brassParts, brassMat);
+  if (brassMesh) {
+    brassMesh.userData.noOutline = true;
+    wingGroup.add(brassMesh);
+  }
+
+  return wingGroup;
+}
+
+function buildZhoubotongHeavyPaddleRotorAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+): {
+  pylon: THREE.Group;
+  blades: THREE.Group;
+} {
+  const pylon = new THREE.Group();
+  pylon.name = side > 0 ? 'portRotorPylon' : 'stbdRotorPylon';
+  pylon.position.set(side * 0.88, 0.78, -1.62);
+
+  const pylonBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.085, 0.35, 12), brassMat);
+  pylonBrass.position.set(0, 0.16, 0);
+  pylonBrass.userData.noOutline = true;
+  pylon.add(pylonBrass);
+
+  const blades = new THREE.Group();
+  blades.name = side > 0 ? 'portRotorBlades' : 'stbdRotorBlades';
+  blades.position.set(0, 0.34, 0);
+
+  const bladeWoodParts: THREE.BufferGeometry[] = [];
+  const bladeBrassParts: THREE.BufferGeometry[] = [
+    place(new THREE.CylinderGeometry(0.078, 0.078, 0.06, 14), 0, 0, 0),
+    place(new THREE.SphereGeometry(0.055, 8, 8), 0, 0.04, 0),
+  ];
+
+  // 4 Broad carved paddle blades
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI * 2) / 4;
+    bladeWoodParts.push(place(new THREE.BoxGeometry(0.022, 0.088, 0.44), 0.24 * Math.cos(a), 0, 0.24 * Math.sin(a), 0, a + 0.32, 0));
+    bladeBrassParts.push(place(new THREE.SphereGeometry(0.018, 6, 6), 0.44 * Math.cos(a), 0, 0.44 * Math.sin(a)));
+  }
+
+  const bladesWoodMesh = mergeMeshParts(bladeWoodParts, woodMat);
+  if (bladesWoodMesh) blades.add(bladesWoodMesh);
+
+  const bladesBrassMesh = mergeMeshParts(bladeBrassParts, brassMat);
+  if (bladesBrassMesh) {
+    bladesBrassMesh.userData.noOutline = true;
+    blades.add(bladesBrassMesh);
+  }
+
+  pylon.add(blades);
+  return { pylon, blades };
+}
+
+// ------------------------------------------------------------ Pilot 5: 孔明 · 卧龙天机/木鸢 (Trimaran & Multi-stage Folding Kite Wings & Bagua Ring) ----
+
+function buildTrimaranOutriggersGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    // Streamlined outrigger pontoon floats
+    parts.push(place(new THREE.CylinderGeometry(0.14, 0.18, 2.6, 12), side * 1.18, 0.22, -0.15, Math.PI / 2, 0, 0));
+    // Arched wooden outrigger struts
+    parts.push(place(new THREE.BoxGeometry(0.65, 0.05, 0.12), side * 0.88, 0.66, 0.6, 0, 0, -side * 0.35));
+    parts.push(place(new THREE.BoxGeometry(0.65, 0.05, 0.12), side * 0.88, 0.66, -1.1, 0, 0, -side * 0.35));
+  }
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildLuBanKiteWingGeometry(side: 1 | -1): THREE.BufferGeometry {
+  const stations = [
+    { span: 0.08, leZ: 0.38, teZ: -0.28, chord: 0.66, camber: 0.038, thick: 0.018 },
+    { span: 0.65, leZ: 0.32, teZ: -0.24, chord: 0.56, camber: 0.042, thick: 0.015 },
+    { span: 1.25, leZ: 0.24, teZ: -0.18, chord: 0.42, camber: 0.036, thick: 0.012 },
+    { span: 1.75, leZ: 0.14, teZ: -0.12, chord: 0.26, camber: 0.024, thick: 0.009 },
+    { span: 2.15, leZ: 0.02, teZ: -0.06, chord: 0.08, camber: 0.012, thick: 0.005 },
+  ];
+  const pos: number[] = [];
+  const stationPts: [number, number, number][][] = [];
+  for (let i = 0; i < stations.length; i++) {
+    const s = stations[i];
+    const x = side * s.span;
+    const pts: [number, number, number][] = [
+      [x, 0, s.leZ],
+      [x, s.camber * 0.75 + s.thick * 0.5, s.leZ - s.chord * 0.2],
+      [x, s.camber + s.thick * 0.5, s.leZ - s.chord * 0.4],
+      [x, s.camber * 0.5 + s.thick * 0.3, s.leZ - s.chord * 0.7],
+      [x, 0, s.teZ],
+      [x, s.camber * 0.2 - s.thick * 0.3, s.leZ - s.chord * 0.7],
+      [x, s.camber * 0.35 - s.thick * 0.5, s.leZ - s.chord * 0.4],
+      [x, s.camber * 0.2 - s.thick * 0.5, s.leZ - s.chord * 0.2],
+    ];
+    stationPts.push(pts);
+  }
+  for (let i = 0; i < stations.length - 1; i++) {
+    const curr = stationPts[i];
+    const next = stationPts[i + 1];
+    for (let j = 0; j < 8; j++) {
+      const j2 = (j + 1) % 8;
+      const c0 = curr[j];
+      const c1 = curr[j2];
+      const n0 = next[j];
+      const n1 = next[j2];
+      if (side > 0) {
+        pos.push(c0[0], c0[1], c0[2], n0[0], n0[1], n0[2], n1[0], n1[1], n1[2]);
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], c1[0], c1[1], c1[2]);
+      } else {
+        pos.push(c0[0], c0[1], c0[2], n1[0], n1[1], n1[2], n0[0], n0[1], n0[2]);
+        pos.push(c0[0], c0[1], c0[2], c1[0], c1[1], c1[2], n1[0], n1[1], n1[2]);
+      }
+    }
+  }
+  pushCap(pos, stationPts[stations.length - 1], side < 0);
+  pushCap(pos, stationPts[0], side > 0);
+  return flatGeometry(pos);
+}
+
+function buildBaguaAstrolabeRingAssembly(
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  silverMat: THREE.Material,
+): THREE.Group {
+  const ringGroup = new THREE.Group();
+  ringGroup.name = 'baguaAstrolabeRing';
+  ringGroup.position.set(0, 0.96, -2.12);
+
+  // Outer brass astrolabe ring
+  const outerRing = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.024, 8, 32), brassMat);
+  outerRing.rotation.x = Math.PI / 2;
+  outerRing.userData.noOutline = true;
+  ringGroup.add(outerRing);
+
+  // Inner silver celestial ring
+  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.018, 8, 24), silverMat);
+  innerRing.rotation.x = Math.PI / 2;
+  innerRing.userData.noOutline = true;
+  ringGroup.add(innerRing);
+
+  // 8 Bagua trigram brass studs
+  const studParts: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    studParts.push(place(new THREE.BoxGeometry(0.04, 0.02, 0.08), 0.42 * Math.cos(a), 0, 0.42 * Math.sin(a), 0, a, 0));
+  }
+  const studMesh = mergeMeshParts(studParts, brassMat);
+  if (studMesh) {
+    studMesh.userData.noOutline = true;
+    ringGroup.add(studMesh);
+  }
+
+  // Central celestial pointer
+  const pointerMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, 0.72, 8), silverMat);
+  pointerMesh.rotation.z = Math.PI / 2;
+  pointerMesh.userData.noOutline = true;
+  ringGroup.add(pointerMesh);
+
+  return ringGroup;
+}
+
+function buildKongmingWingAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  canvasMat: THREE.Material,
+): THREE.Group {
+  const wingGroup = new THREE.Group();
+  wingGroup.name = side > 0 ? 'portWing' : 'stbdWing';
+  wingGroup.position.set(side * 0.58, 0.74, -0.55);
+
+  const canvasMesh = new THREE.Mesh(buildLuBanKiteWingGeometry(side), canvasMat);
+  wingGroup.add(canvasMesh);
+
+  const darkWoodParts: THREE.BufferGeometry[] = [
+    place(new THREE.BoxGeometry(2.15, 0.032, 0.042), side * 1.08, 0.018, 0.08),
+    place(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 8), side * 1.25, 0.02, 0.08), // Articulated knuckle
+  ];
+  const darkWoodMesh = mergeMeshParts(darkWoodParts, darkWoodMat);
+  if (darkWoodMesh) wingGroup.add(darkWoodMesh);
+
+  const brassParts: THREE.BufferGeometry[] = [
+    place(new THREE.SphereGeometry(0.028, 8, 8), side * 1.25, 0.02, 0.08),
+    place(new THREE.CylinderGeometry(0.012, 0.002, 0.45, 6), side * 2.15, 0.01, -0.05, Math.PI / 2, 0, side * 0.15),
+  ];
+  const brassMesh = mergeMeshParts(brassParts, brassMat);
+  if (brassMesh) {
+    brassMesh.userData.noOutline = true;
+    wingGroup.add(brassMesh);
+  }
+
+  return wingGroup;
+}
+
+function buildKongmingKiteRotorAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+): {
+  pylon: THREE.Group;
+  blades: THREE.Group;
+} {
+  const pylon = new THREE.Group();
+  pylon.name = side > 0 ? 'portRotorPylon' : 'stbdRotorPylon';
+  pylon.position.set(side * 0.68, 0.76, -1.62);
+
+  const pylonBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.048, 0.30, 10), brassMat);
+  pylonBrass.position.set(0, 0.15, 0);
+  pylonBrass.userData.noOutline = true;
+  pylon.add(pylonBrass);
+
+  const blades = new THREE.Group();
+  blades.name = side > 0 ? 'portRotorBlades' : 'stbdRotorBlades';
+  blades.position.set(0, 0.31, 0);
+
+  const bladeWoodParts: THREE.BufferGeometry[] = [];
+  const bladeBrassParts: THREE.BufferGeometry[] = [
+    place(new THREE.ConeGeometry(0.042, 0.085, 12), 0, 0.045, 0),
+  ];
+  const bladeGeo = buildRotorBladeGeometry();
+  for (let i = 0; i < 3; i++) {
+    const bladeAngle = (i * Math.PI * 2) / 3;
+    bladeWoodParts.push(place(bladeGeo, 0, 0, 0, 0, bladeAngle, 0, 0.92, 0.92, 1.15));
+    bladeBrassParts.push(place(new THREE.SphereGeometry(0.012, 6, 6), 0.48 * Math.cos(bladeAngle), 0, -0.48 * Math.sin(bladeAngle)));
+  }
+
+  const bladesWoodMesh = mergeMeshParts(bladeWoodParts, woodMat);
+  if (bladesWoodMesh) blades.add(bladesWoodMesh);
+
+  const bladesBrassMesh = mergeMeshParts(bladeBrassParts, brassMat);
+  if (bladesBrassMesh) {
+    bladesBrassMesh.userData.noOutline = true;
+    blades.add(bladesBrassMesh);
+  }
+
+  pylon.add(blades);
+  return { pylon, blades };
+}
+
+// ------------------------------------------------------------ Pilot 6: 娃娃 · 风之浮子/彩虹雨燕 (Biplane Glider & Wingtip Pinwheels) ----
+
+function buildWawaBuoysGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    // Cheerful spherical buoyant floats
+    parts.push(place(new THREE.SphereGeometry(0.32, 12, 12), side * 0.88, 0.22, 0.25));
+    // Brass mounting hoops
+    parts.push(place(new THREE.TorusGeometry(0.33, 0.024, 6, 16), side * 0.88, 0.22, 0.25));
+  }
+  const merged = mergeGeometries(parts.map(normalizeGeo), false);
+  parts.forEach((p) => p.dispose());
+  return merged ?? new THREE.BufferGeometry();
+}
+
+function buildBiplaneWingAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+  canvasMat: THREE.Material,
+  patchworkPinkMat: THREE.Material,
+  solarMat: THREE.Material,
+  dragonflyMat: THREE.Material,
+  patchworkVineMat: THREE.Material,
+): {
+  wingGroup: THREE.Group;
+  pinwheelGroup: THREE.Group;
+} {
+  const wingGroup = new THREE.Group();
+  wingGroup.name = side > 0 ? 'portWing' : 'stbdWing';
+  wingGroup.position.set(side * 0.58, 0.74, -0.55);
+
+  // 1. Lower Canvas Wing
+  const lowerWing = new THREE.Mesh(buildGliderCanvasWingGeometry(side), patchworkPinkMat);
+  wingGroup.add(lowerWing);
+
+  // 2. Upper Canvas Wing (mounted +0.52m higher)
+  const upperWing = new THREE.Mesh(buildGliderCanvasWingGeometry(side), dragonflyMat);
+  upperWing.position.set(0, 0.52, -0.06);
+  wingGroup.add(upperWing);
+
+  // 3. Vertical wooden interplane struts & diagonal cross-wires
+  const strutParts: THREE.BufferGeometry[] = [
+    place(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 6), side * 0.85, 0.26, 0.18),
+    place(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 6), side * 0.85, 0.26, -0.18),
+    place(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 6), side * 1.62, 0.26, 0.08),
+    place(new THREE.CylinderGeometry(0.016, 0.016, 0.52, 6), side * 1.62, 0.26, -0.12),
+  ];
+  const strutMesh = mergeMeshParts(strutParts, darkWoodMat);
+  if (strutMesh) wingGroup.add(strutMesh);
+
+  // 4. Wingtip spinning 4-blade colorful pinwheel
+  const pinwheelGroup = new THREE.Group();
+  pinwheelGroup.name = 'wawaPinwheel';
+  pinwheelGroup.position.set(side * 1.68, 0.26, 0.0);
+
+  const pinwheelHub = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), brassMat);
+  pinwheelHub.userData.noOutline = true;
+  pinwheelGroup.add(pinwheelHub);
+
+  const petalMats = [patchworkPinkMat, solarMat, dragonflyMat, patchworkVineMat];
+  for (let p = 0; p < 4; p++) {
+    const a = (p / 4) * Math.PI * 2;
+    const petalMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.16), petalMats[p % petalMats.length]);
+    petalMesh.position.set(0.08 * Math.cos(a), 0.08 * Math.sin(a), 0);
+    petalMesh.rotation.z = a + 0.35;
+    petalMesh.userData.noOutline = true;
+    pinwheelGroup.add(petalMesh);
+  }
+  wingGroup.add(pinwheelGroup);
+
+  return { wingGroup, pinwheelGroup };
+}
+
+function buildWawaRotorAssembly(
+  side: 1 | -1,
+  woodMat: THREE.Material,
+  darkWoodMat: THREE.Material,
+  brassMat: THREE.Material,
+): {
+  pylon: THREE.Group;
+  blades: THREE.Group;
+} {
+  const pylon = new THREE.Group();
+  pylon.name = side > 0 ? 'portRotorPylon' : 'stbdRotorPylon';
+  pylon.position.set(side * 0.68, 0.76, -1.62);
+
+  const pylonWoodMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.16), darkWoodMat);
+  pylon.add(pylonWoodMesh);
+
+  const pylonBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.048, 0.28, 10), brassMat);
+  pylonBrass.position.set(0, 0.15, 0);
+  pylonBrass.userData.noOutline = true;
+  pylon.add(pylonBrass);
+
+  const blades = new THREE.Group();
+  blades.name = side > 0 ? 'portRotorBlades' : 'stbdRotorBlades';
+  blades.position.set(0, 0.31, 0);
+
+  const bladeWoodParts: THREE.BufferGeometry[] = [];
+  const bladeBrassParts: THREE.BufferGeometry[] = [
+    place(new THREE.SphereGeometry(0.048, 8, 8), 0, 0, 0),
+  ];
+  const bladeGeo = buildRotorBladeGeometry();
+  for (let i = 0; i < 3; i++) {
+    const bladeAngle = (i * Math.PI * 2) / 3;
+    bladeWoodParts.push(place(bladeGeo, 0, 0, 0, 0, bladeAngle, 0, 0.85, 0.85, 0.85));
+    bladeBrassParts.push(place(new THREE.SphereGeometry(0.014, 8, 8), 0.38 * Math.cos(bladeAngle), 0, -0.38 * Math.sin(bladeAngle)));
+  }
+
+  const bladesWoodMesh = mergeMeshParts(bladeWoodParts, woodMat);
+  if (bladesWoodMesh) blades.add(bladesWoodMesh);
+
+  const bladesBrassMesh = mergeMeshParts(bladeBrassParts, brassMat);
+  if (bladesBrassMesh) {
+    bladesBrassMesh.userData.noOutline = true;
+    blades.add(bladesBrassMesh);
+  }
+
+  pylon.add(blades);
+  return { pylon, blades };
+}
+
+// ------------------------------------------------------------ Master Visual Dispatcher ----
+
+function buildBoatVisual(id: number, color: number, profileId = 'sushi'): BoatVisualAssembly {
   const root = new THREE.Group();
   root.name = 'hull';
 
@@ -1254,6 +2091,35 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
     rimStrength: 0.7,
   });
 
+  // Pilot-specific specialty materials
+  const solarMat = createToonMaterial({
+    color: PALETTE.sunFlare,
+    emissive: PALETTE.sunCore,
+    emissiveIntensity: 0.65,
+    rimColor: PALETTE.sparkle,
+  });
+  const dragonflyMat = createToonMaterial({
+    color: PALETTE.skyMid,
+    shadowTint: PALETTE.waterDeep,
+    rimColor: PALETTE.sparkle,
+    rimStrength: 0.75,
+  });
+  const patchworkPinkMat = createToonMaterial({
+    color: PALETTE.petalPink,
+    rimColor: PALETTE.sparkle,
+  });
+  const patchworkVineMat = createToonMaterial({
+    color: PALETTE.vineGreen,
+    rimColor: PALETTE.sparkle,
+  });
+  const silverMat = createToonMaterial({
+    color: PALETTE.foam,
+    rimColor: PALETTE.sparkle,
+    specColor: PALETTE.sparkle,
+    specThreshold: 0.55,
+  });
+
+  // 1. Wood Hull Geometries (monohull base + pilot-specific additions)
   const woodParts: THREE.BufferGeometry[] = [
     buildHullGeometry(),
     buildDeckGeometry(),
@@ -1263,6 +2129,13 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
     place(new THREE.CylinderGeometry(0.18, 0.15, 0.28, 16), 0, 0.2, -2.54, Math.PI / 2, 0, 0),
     place(new THREE.BoxGeometry(1.18, 0.05, 0.34), 0, 0.82, -2.42, -0.12, 0, 0),
   ];
+  if (profileId === 'zhoubotong') {
+    woodParts.push(buildCatamaranTwinHullsGeometry());
+  } else if (profileId === 'kongming') {
+    woodParts.push(buildTrimaranOutriggersGeometry());
+  } else if (profileId === 'wawa') {
+    woodParts.push(buildWawaBuoysGeometry());
+  }
 
   const darkWoodParts: THREE.BufferGeometry[] = [
     buildKeelBeamGeometry(),
@@ -1285,6 +2158,10 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
     place(new THREE.BoxGeometry(0.06, 0.12, 0.38), 0.59, 0.82, -2.42, -0.12, 0, 0),
     place(new THREE.BoxGeometry(0.06, 0.12, 0.38), -0.59, 0.82, -2.42, -0.12, 0, 0),
   ];
+  if (profileId === 'qingzhao') {
+    darkWoodParts.push(buildDragonflyTwinBoomsGeometry(1));
+    darkWoodParts.push(buildDragonflyTwinBoomsGeometry(-1));
+  }
 
   const brassParts: THREE.BufferGeometry[] = [
     place(new THREE.ConeGeometry(0.09, 0.22, 12), 0.78, 0.18, -1.2, Math.PI / 2, 0, 0),
@@ -1329,6 +2206,11 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
     place(new THREE.CylinderGeometry(0.03, 0.04, 0.06, 8), 0.62, 0.84, -2.2),
     place(new THREE.CylinderGeometry(0.012, 0.012, 0.44, 8), 0.62, 1.06, -2.2),
   ];
+  if (profileId === 'zhoubotong') {
+    brassParts.push(buildCatamaranBrassBumpersGeometry());
+  } else if (profileId === 'xiaofeng') {
+    brassParts.push(buildXiaofengTwinJetNozzlesGeometry());
+  }
 
   const hullLiveryParts: THREE.BufferGeometry[] = [
     buildDeckLiveryGeometry(1),
@@ -1382,7 +2264,7 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
     root.add(flightMesh);
   }
 
-  // 12. Vintage Racing Number Decals on Parchment Plaques
+  // Vintage Racing Number Decals on Parchment Plaques
   const decalMat = new THREE.MeshBasicMaterial({
     map: numberDecalTexture(id + 1),
     transparent: true,
@@ -1403,17 +2285,84 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
   decalStbd.userData.noOutline = true;
   root.add(decalStbd);
 
-  // 13. Foldable Artisanal Canvas Glider Wings (Port & Starboard)
-  const portWing = buildGliderWingAssembly(1, woodMat, darkWoodMat, brassMat, canvasMat);
-  const stbdWing = buildGliderWingAssembly(-1, woodMat, darkWoodMat, brassMat, canvasMat);
+  // Pilot-specific glider wings and rotors assembly
+  let portWing: THREE.Group;
+  let stbdWing: THREE.Group;
+  let portRotorPylon: THREE.Group;
+  let stbdRotorPylon: THREE.Group;
+  let portRotorBlades: THREE.Group;
+  let stbdRotorBlades: THREE.Group;
+  const extra: ExtraAnimatedParts = {};
+
+  if (profileId === 'qingzhao') {
+    portWing = buildQingzhaoWingAssembly(1, woodMat, darkWoodMat, brassMat, dragonflyMat);
+    stbdWing = buildQingzhaoWingAssembly(-1, woodMat, darkWoodMat, brassMat, dragonflyMat);
+    const portRotor = buildDragonflyDuctedRotorAssembly(1, darkWoodMat, brassMat, dragonflyMat);
+    const stbdRotor = buildDragonflyDuctedRotorAssembly(-1, darkWoodMat, brassMat, dragonflyMat);
+    portRotorPylon = portRotor.pylon;
+    stbdRotorPylon = stbdRotor.pylon;
+    portRotorBlades = portRotor.blades;
+    stbdRotorBlades = stbdRotor.blades;
+  } else if (profileId === 'xiaofeng') {
+    portWing = buildXiaofengWingAssembly(1, woodMat, darkWoodMat, brassMat, solarMat);
+    stbdWing = buildXiaofengWingAssembly(-1, woodMat, darkWoodMat, brassMat, solarMat);
+    const portRotor = buildXiaofengRotorAssembly(1, darkWoodMat, brassMat, solarMat);
+    const stbdRotor = buildXiaofengRotorAssembly(-1, darkWoodMat, brassMat, solarMat);
+    portRotorPylon = portRotor.pylon;
+    stbdRotorPylon = stbdRotor.pylon;
+    portRotorBlades = portRotor.blades;
+    stbdRotorBlades = stbdRotor.blades;
+  } else if (profileId === 'zhoubotong') {
+    portWing = buildZhoubotongWingAssembly(1, woodMat, darkWoodMat, brassMat, canvasMat);
+    stbdWing = buildZhoubotongWingAssembly(-1, woodMat, darkWoodMat, brassMat, canvasMat);
+    const portRotor = buildZhoubotongHeavyPaddleRotorAssembly(1, woodMat, darkWoodMat, brassMat);
+    const stbdRotor = buildZhoubotongHeavyPaddleRotorAssembly(-1, woodMat, darkWoodMat, brassMat);
+    portRotorPylon = portRotor.pylon;
+    stbdRotorPylon = stbdRotor.pylon;
+    portRotorBlades = portRotor.blades;
+    stbdRotorBlades = stbdRotor.blades;
+  } else if (profileId === 'kongming') {
+    portWing = buildKongmingWingAssembly(1, woodMat, darkWoodMat, brassMat, canvasMat);
+    stbdWing = buildKongmingWingAssembly(-1, woodMat, darkWoodMat, brassMat, canvasMat);
+    const portRotor = buildKongmingKiteRotorAssembly(1, woodMat, darkWoodMat, brassMat);
+    const stbdRotor = buildKongmingKiteRotorAssembly(-1, woodMat, darkWoodMat, brassMat);
+    portRotorPylon = portRotor.pylon;
+    stbdRotorPylon = stbdRotor.pylon;
+    portRotorBlades = portRotor.blades;
+    stbdRotorBlades = stbdRotor.blades;
+
+    const baguaRing = buildBaguaAstrolabeRingAssembly(darkWoodMat, brassMat, silverMat);
+    root.add(baguaRing);
+    extra.baguaRing = baguaRing;
+  } else if (profileId === 'wawa') {
+    const portBiplane = buildBiplaneWingAssembly(1, woodMat, darkWoodMat, brassMat, canvasMat, patchworkPinkMat, solarMat, dragonflyMat, patchworkVineMat);
+    const stbdBiplane = buildBiplaneWingAssembly(-1, woodMat, darkWoodMat, brassMat, canvasMat, patchworkPinkMat, solarMat, dragonflyMat, patchworkVineMat);
+    portWing = portBiplane.wingGroup;
+    stbdWing = stbdBiplane.wingGroup;
+    const portRotor = buildWawaRotorAssembly(1, woodMat, darkWoodMat, brassMat);
+    const stbdRotor = buildWawaRotorAssembly(-1, woodMat, darkWoodMat, brassMat);
+    portRotorPylon = portRotor.pylon;
+    stbdRotorPylon = stbdRotor.pylon;
+    portRotorBlades = portRotor.blades;
+    stbdRotorBlades = stbdRotor.blades;
+
+    extra.pinwheels = [portBiplane.pinwheelGroup, stbdBiplane.pinwheelGroup];
+  } else {
+    // Default & 苏轼 · 晴空信天翁 (Classic Albatross Monohull)
+    portWing = buildSushiWingAssembly(1, woodMat, darkWoodMat, brassMat, canvasMat);
+    stbdWing = buildSushiWingAssembly(-1, woodMat, darkWoodMat, brassMat, canvasMat);
+    const portRotor = buildRotorAssembly(1, woodMat, darkWoodMat, brassMat);
+    const stbdRotor = buildRotorAssembly(-1, woodMat, darkWoodMat, brassMat);
+    portRotorPylon = portRotor.pylon;
+    stbdRotorPylon = stbdRotor.pylon;
+    portRotorBlades = portRotor.blades;
+    stbdRotorBlades = stbdRotor.blades;
+  }
+
   root.add(portWing);
   root.add(stbdWing);
-
-  // 14. Articulating Wooden Lift Gyro-Rotors (Port & Starboard)
-  const portRotor = buildRotorAssembly(1, woodMat, darkWoodMat, brassMat);
-  const stbdRotor = buildRotorAssembly(-1, woodMat, darkWoodMat, brassMat);
-  root.add(portRotor.pylon);
-  root.add(stbdRotor.pylon);
+  root.add(portRotorPylon);
+  root.add(stbdRotorPylon);
 
   // Rider attach point at the helm; local +Z = boat forward
   const riderMount = new THREE.Object3D();
@@ -1427,10 +2376,11 @@ function buildBoatVisual(id: number, color: number): BoatVisualAssembly {
     hullMaterial: hullMat,
     portWing,
     stbdWing,
-    portRotorPylon: portRotor.pylon,
-    stbdRotorPylon: stbdRotor.pylon,
-    portRotorBlades: portRotor.blades,
-    stbdRotorBlades: stbdRotor.blades,
+    portRotorPylon,
+    stbdRotorPylon,
+    portRotorBlades,
+    stbdRotorBlades,
+    extra,
   };
 }
 
@@ -1445,17 +2395,21 @@ export class Boat implements IBoat {
   private readonly wake: IWake;
   private readonly spray: ISpray;
   private readonly trail: IJetTrail;
-  private readonly hullMaterial: THREE.ShaderMaterial;
-  private readonly portWing: THREE.Group;
-  private readonly stbdWing: THREE.Group;
-  private readonly portRotorPylon: THREE.Group;
-  private readonly stbdRotorPylon: THREE.Group;
-  private readonly portRotorBlades: THREE.Group;
-  private readonly stbdRotorBlades: THREE.Group;
+  private visualAssembly: BoatVisualAssembly;
+  private visualRoot: THREE.Group;
+  private hullMaterial: THREE.ShaderMaterial;
+  private portWing: THREE.Group;
+  private stbdWing: THREE.Group;
+  private portRotorPylon: THREE.Group;
+  private stbdRotorPylon: THREE.Group;
+  private portRotorBlades: THREE.Group;
+  private stbdRotorBlades: THREE.Group;
+  private detailedInk = true;
   private wingDeploy = 0;
   private rotorAngle = 0;
   private rotorSpeed = 0;
   private handling: DriverHandling = { acceleration: 1, steering: 1, driftCharge: 1, airControl: 1 };
+  private driverProfileId = 'sushi';
 
   // planar dynamics
   private heading = 0;
@@ -1474,13 +2428,24 @@ export class Boat implements IBoat {
   private boostTimer = 0;
   private boostTotal = 0;
   private wasDrifting = false;
-  // earned anti-grav flight
+  // earned glider flight & aerodynamics
   private flightElapsed = 0;
   private flightExtensionTime = 0;
   private flightStartClearance = 0;
   private flightDesiredYPrev = 0;
   private flightTargetVy = 0;
   private flightPenaltyApplied = false;
+  private aeroPitch = 0;
+  private course?: ICourse;
+  // ground effect & proximity resonance (Task 8.2)
+  private groundEffect = 0;
+  private groundResonance = 0;
+  private groundResonanceCharge = 0;
+  private groundTrailCd = 0;
+  // thermal updrafts & wind tunnels (Task 8.3)
+  private thermalUpdraft = 0;
+  private windTunnelBoost = 0;
+  private readonly prevPosForTunnel = new THREE.Vector3();
   // bookkeeping
   private prevSpeed = 0;
   private lateralG = 0;
@@ -1514,19 +2479,24 @@ export class Boat implements IBoat {
     this.wake = opts.wake;
     this.spray = opts.spray;
     this.trail = opts.trail;
+    this.course = opts.course;
+    this.driverProfileId = opts.driverId || 'sushi';
+    this.detailedInk = opts.detailedInk !== false;
 
     this.object = new THREE.Group();
     this.object.name = `boat-${opts.id}`;
-    const visual = buildBoatVisual(opts.id, opts.color);
-    this.object.add(visual.root);
-    this.riderMount = visual.riderMount;
-    this.hullMaterial = visual.hullMaterial;
-    this.portWing = visual.portWing;
-    this.stbdWing = visual.stbdWing;
-    this.portRotorPylon = visual.portRotorPylon;
-    this.stbdRotorPylon = visual.stbdRotorPylon;
-    this.portRotorBlades = visual.portRotorBlades;
-    this.stbdRotorBlades = visual.stbdRotorBlades;
+
+    this.visualAssembly = buildBoatVisual(opts.id, opts.color, this.driverProfileId);
+    this.visualRoot = this.visualAssembly.root;
+    this.object.add(this.visualRoot);
+    this.riderMount = this.visualAssembly.riderMount;
+    this.hullMaterial = this.visualAssembly.hullMaterial;
+    this.portWing = this.visualAssembly.portWing;
+    this.stbdWing = this.visualAssembly.stbdWing;
+    this.portRotorPylon = this.visualAssembly.portRotorPylon;
+    this.stbdRotorPylon = this.visualAssembly.stbdRotorPylon;
+    this.portRotorBlades = this.visualAssembly.portRotorBlades;
+    this.stbdRotorBlades = this.visualAssembly.stbdRotorBlades;
 
     // Initial folded resting pose for surface navigation
     this.portWing.rotation.set(-0.04, -1.45, -0.12, 'YXZ');
@@ -1534,9 +2504,9 @@ export class Boat implements IBoat {
     this.portRotorPylon.rotation.x = -0.42;
     this.stbdRotorPylon.rotation.x = -0.42;
 
-    if (opts.detailedInk !== false) {
-      addOutline(this.object);
-      markInk(this.object);
+    if (this.detailedInk) {
+      addOutline(this.visualRoot);
+      markInk(this.visualRoot);
     }
 
     // Ink blob shadow — added AFTER outline/ink passes so it stays out of
@@ -1586,6 +2556,11 @@ export class Boat implements IBoat {
       flightFailure: null,
       flightGateProgress: 0,
       flightPenaltyRemaining: 0,
+      groundEffect: 0,
+      groundResonance: 0,
+      groundResonanceCharge: 0,
+      thermalUpdraft: 0,
+      windTunnelBoost: 0,
       airborne: false,
       airTime: 0,
       landImpulse: 0,
@@ -1638,30 +2613,28 @@ export class Boat implements IBoat {
     let vF = this.velX * fwdX + this.velZ * fwdZ; // signed forward speed
     let vL = this.velX * portX + this.velZ * portZ; // + = sliding to port
 
-    if (!st.airborne || flightWasActive) {
-      // longitudinal: tapered engine + quadratic drag (+ drift scrub)
+    // Effective surface drift (including air-brake to drift landing handoff)
+    const effectiveDrift = (input.drift || (st.flightPhase === 'surface' && input.airBrake && !surfaceReturnBrake)) && st.flightPhase === 'surface';
+
+    if (flightWasActive) {
+      // Aerodynamic directional stability (rudders + wing span damping side-slip)
+      const flightGrip = 9.5 + 7.5 * this.airBrakeFx;
+      vL *= Math.max(0, 1 - flightGrip * dt);
+    } else if (surfaceReturnBrake) {
+      const dragCompensation = TUNING.dragQuad * vF * Math.abs(vF);
+      const maxDecel = TUNING.returnBrakeDecel * Math.max(0.5, this.airBrakeFx);
+      const aF = clamp(
+        (TUNING.returnBrakeTargetSpeed - vF) * 3.2 + dragCompensation,
+        -maxDecel,
+        0,
+      );
+      vF += aF * dt;
+      vF = Math.max(0, vF);
+      const brakeGrip = TUNING.lateralGrip + (TUNING.airBrakeGrip - TUNING.lateralGrip) * this.airBrakeFx;
+      vL *= Math.max(0, 1 - brakeGrip * dt);
+    } else if (!st.airborne) {
       let aF: number;
-      if (flightWasActive) {
-        const cruiseTarget = st.flightPhase === 'descending'
-          ? TUNING.flightDescentSpeed
-          : this.flightTargetSpeed;
-        const target = cruiseTarget + (TUNING.airBrakeTargetSpeed - cruiseTarget) * this.airBrakeFx;
-        const dragCompensation = TUNING.dragQuad * vF * Math.abs(vF);
-        const maxDecel = TUNING.airBrakeDecel * Math.max(0.5, this.airBrakeFx);
-        aF = clamp(
-          (target - vF) * TUNING.flightDriveGain + dragCompensation,
-          -maxDecel,
-          TUNING.flightDriveAccel,
-        );
-      } else if (surfaceReturnBrake) {
-        const dragCompensation = TUNING.dragQuad * vF * Math.abs(vF);
-        const maxDecel = TUNING.returnBrakeDecel * Math.max(0.5, this.airBrakeFx);
-        aF = clamp(
-          (TUNING.returnBrakeTargetSpeed - vF) * TUNING.flightDriveGain + dragCompensation,
-          -maxDecel,
-          0,
-        );
-      } else if (thr >= 0) {
+      if (thr >= 0) {
         const driveMul = st.flightPenaltyRemaining > 0 ? TUNING.flightMissDriveMul : 1;
         aF = thr * accel * driveMul * Math.max(0, 1 - vF / taperRef);
       } else if (vF > 0.5) {
@@ -1670,14 +2643,12 @@ export class Boat implements IBoat {
         aF = thr * TUNING.reverseAccel * Math.max(0, 1 + vF / TUNING.reverseSpeed);
       }
       aF -= TUNING.dragQuad * vF * Math.abs(vF);
-      if (input.drift) aF -= TUNING.driftScrub * vF;
+      if (effectiveDrift) aF -= TUNING.driftScrub * vF;
       vF += aF * dt;
-      if (flightWasActive) vF = Math.min(vF, TUNING.flightHardCap);
-      if (surfaceReturnBrake) vF = Math.max(0, vF);
 
       // lateral hydrodynamic grip — cut while drifting (powerslide)
       const brakeGrip = TUNING.lateralGrip + (TUNING.airBrakeGrip - TUNING.lateralGrip) * this.airBrakeFx;
-      const driftCut = input.drift ? TUNING.driftGripMul + (1 - TUNING.driftGripMul) * this.airBrakeFx : 1;
+      const driftCut = effectiveDrift ? TUNING.driftGripMul + (1 - TUNING.driftGripMul) * this.airBrakeFx : 1;
       const grip = brakeGrip * driftCut;
       vL *= Math.max(0, 1 - grip * dt);
     }
@@ -1695,14 +2666,14 @@ export class Boat implements IBoat {
     const authority = Math.min(speedAbs / TUNING.steerFullSpeed, 1) * (vF < 0 ? -1 : 1);
     const yawTarget = -steer * Math.min(TUNING.yawRateMax * steeringMul, gCap) * authority;
     const baseYawDamp = TUNING.yawDamp + (TUNING.airBrakeYawDamp - TUNING.yawDamp) * this.airBrakeFx;
-    const driftYawCut = input.drift ? TUNING.driftYawDampMul + (1 - TUNING.driftYawDampMul) * this.airBrakeFx : 1;
+    const driftYawCut = effectiveDrift ? TUNING.driftYawDampMul + (1 - TUNING.driftYawDampMul) * this.airBrakeFx : 1;
     const yawDamp = baseYawDamp * driftYawCut;
     this.yawRate += (yawTarget - this.yawRate) * Math.min(1, yawDamp * dt);
     this.heading = wrapAngle(this.heading + this.yawRate * dt);
     this.lateralG = vF * this.yawRate; // + = turning left
 
     // drift charge / boost payout on release
-    if (input.drift && !flightWasActive) {
+    if (effectiveDrift && !flightWasActive) {
       if (speedAbs > TUNING.driftMinSpeed) {
         st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
       }
@@ -1717,14 +2688,16 @@ export class Boat implements IBoat {
       }
       st.boostCharge = 0;
     }
-    this.wasDrifting = input.drift;
+    this.wasDrifting = effectiveDrift;
     boosting = this.boostTimer > 0;
 
     // Process the trigger after drift payout so releasing Shift and pressing Space
     // on the same simulation frame is a valid combo.
+    // On the water surface, pressing Space ALWAYS launches the glider (spending a charge
+    // if available, or catching a free sea-breeze launch if charges are 0).
     if (input.flightTrigger) {
-      if (st.flightCharges > 0 && st.flightPhase === 'surface') {
-        st.flightCharges--;
+      if (st.flightPhase === 'surface') {
+        if (st.flightCharges > 0) st.flightCharges--;
         st.flightPhase = 'spool';
         st.flightRouteState = 'idle';
         st.flightRouteIndex = -1;
@@ -1746,9 +2719,8 @@ export class Boat implements IBoat {
         st.flightExtensionUsed = true;
         st.flightExtensionReady = false;
         st.flightExtended = true;
-        // Arrest a late descent without snapping the hull upward. The regular
-        // vertical spring then returns it to authored cruise clearance.
-        this.vy = Math.max(this.vy, -1);
+        // Arrest a late descent without snapping the hull upward.
+        this.vy = Math.max(this.vy, 2.5);
         this.flightTargetVy = Math.max(this.flightTargetVy, 0);
         this.liftBurstTimer = Math.max(this.liftBurstTimer, 0.22);
       } else {
@@ -1756,11 +2728,57 @@ export class Boat implements IBoat {
       }
     }
 
+    // ---- Aerodynamic Sky-Stream & Waterway Channel Assist (Player Comfort & Flow) ----
+    if (this.id === 0 && this.course && speedAbs > 3.5) {
+      const activeRoute = this.course.routeForBoat(this.id);
+      this.course.sample(pos, _guideSample, activeRoute);
+      const tx = _guideSample.tangent.x;
+      const tz = _guideSample.tangent.z;
+      const toCenterX = _guideSample.point.x - pos.x;
+      const toCenterZ = _guideSample.point.z - pos.z;
+      const dist = _guideSample.distance;
+
+      if (st.flightPhase !== 'surface' && activeRoute !== 'surface') {
+        // In-flight sky-stream alignment: gently guide heading & lateral path toward the active flight route
+        const lookLead = Math.max(8, speedAbs * 0.28);
+        const aimX = toCenterX + tx * lookLead;
+        const aimZ = toCenterZ + tz * lookLead;
+        const desiredHeading = Math.atan2(aimX, aimZ);
+        const headingErr = wrapAngle(desiredHeading - this.heading);
+        const steerOverride = 1.0 - Math.min(0.65, Math.abs(steer) * 0.65);
+        const alignRate = (2.6 + clamp(dist / 6.0, 0, 2.4)) * steerOverride;
+        this.heading = wrapAngle(this.heading + clamp(headingErr, -0.8, 0.8) * Math.min(1, alignRate * dt));
+        // Gentle lateral centering stream so the glider stays comfortably inside the sky corridor
+        if (dist > 1.2) {
+          const pull = clamp((dist - 1.2) * 2.2, 0, 14) * steerOverride;
+          const invD = 1 / Math.max(0.1, dist);
+          this.velX += toCenterX * invD * pull * dt;
+          this.velZ += toCenterZ * invD * pull * dt;
+        }
+      } else if (st.flightPhase === 'surface' && dist > 11.0) {
+        // Surface waterway channel current: prevent spinning out or getting lost off-course
+        const lookLead = Math.max(12, speedAbs * 0.42);
+        const aimX = toCenterX + tx * lookLead;
+        const aimZ = toCenterZ + tz * lookLead;
+        const desiredHeading = Math.atan2(aimX, aimZ);
+        const headingErr = wrapAngle(desiredHeading - this.heading);
+        const offFactor = clamp((dist - 11.0) / 16.0, 0, 1);
+        const alignRate = (1.8 + offFactor * 3.8) * (dist > 24.0 ? 1.0 : 1.0 - Math.abs(steer) * 0.45);
+        this.heading = wrapAngle(this.heading + clamp(headingErr, -1.1, 1.1) * Math.min(1, alignRate * dt));
+        if (dist > 16.0) {
+          const pull = clamp((dist - 16.0) * 1.8, 0, 16);
+          const invD = 1 / Math.max(0.1, dist);
+          this.velX += toCenterX * invD * pull * dt;
+          this.velZ += toCenterZ * invD * pull * dt;
+        }
+      }
+    }
+
     // integrate planar position
     pos.x += this.velX * dt;
     pos.z += this.velZ * dt;
 
-    // ---- buoyancy: 5-point sample of the Gerstner field ----
+    // ---- buoyancy & flight aerodynamics ----
     const L = TUNING.sampleLong;
     const W = TUNING.sampleLat;
     const hBowL = waterHeight(pos.x + portX * W + fwdX * L, pos.z + portZ * W + fwdZ * L, t);
@@ -1773,8 +2791,20 @@ export class Boat implements IBoat {
 
     st.landImpulse = 0; // only landing frames report an impact
     if (st.flightPhase !== 'surface') {
-      this.updateFlight(dt, surfaceY, targetY);
+      vF = this.updateFlight(dt, surfaceY, targetY, thr, vF, input, surfaceReturnBrake);
+      this.velX = fwdX * vF + portX * vL;
+      this.velZ = fwdZ * vF + portZ * vL;
     } else if (st.airborne) {
+      const thermalSample = this.course?.sampleThermalUpdraft(pos);
+      if (thermalSample && thermalSample.intensity > 0.01) {
+        this.thermalUpdraft += (thermalSample.intensity - this.thermalUpdraft) * (1 - Math.exp(-12 * dt));
+        this.vy += this.thermalUpdraft * Math.max(0, thermalSample.liftSpeed - this.vy) * TUNING.thermalCouplingK * dt;
+      } else {
+        this.thermalUpdraft = Math.max(0, this.thermalUpdraft - dt * 3.5);
+      }
+      this.windTunnelBoost = Math.max(0, this.windTunnelBoost - dt * 2.8);
+      st.thermalUpdraft = this.thermalUpdraft;
+      st.windTunnelBoost = this.windTunnelBoost;
       this.vy -= TUNING.gravity * dt;
       pos.y += this.vy * dt;
       st.airTime += dt;
@@ -1793,8 +2823,22 @@ export class Boat implements IBoat {
           this.spray.burst(_v1, n, 2 + impact * 0.6);
         }
         this.wake.push(_v1, fwdX, fwdZ, 1); // slam push
+
+        // Air-brake to Drift Landing Handoff (空中刹车/漂移落地触水无缝切入水面漂移)
+        const brakingIntoLand = input.airBrake || this.airBrakeFx > 0.08 || input.drift;
+        if (brakingIntoLand && !surfaceReturnBrake) {
+          this.wasDrifting = true;
+          st.drifting = true;
+          if (speedAbs > TUNING.driftMinSpeed) {
+            st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
+          }
+        }
       }
     } else {
+      this.thermalUpdraft = Math.max(0, this.thermalUpdraft - dt * 4.0);
+      this.windTunnelBoost = Math.max(0, this.windTunnelBoost - dt * 3.0);
+      st.thermalUpdraft = this.thermalUpdraft;
+      st.windTunnelBoost = this.windTunnelBoost;
       // Water can only push, never pull: downward accel clamps at −g, so brief
       // unloads become free-fall micro-skips that KEEP thrust and grip. The
       // airborne flag latches only after a sustained unload (dwell) — i.e. a
@@ -1840,13 +2884,11 @@ export class Boat implements IBoat {
       pitchT *= TUNING.airTiltKeep;
       rollT *= TUNING.airTiltKeep;
     } else if (st.flightPhase !== 'surface') {
-      // Stable anti-grav banking keeps the craft readable as flight, while
-      // Space still owns the exact old yaw/grip behavior underneath.
-      pitchT *= 0.2;
+      pitchT = this.aeroPitch;
       rollT = -clamp(this.lateralG / TUNING.latGMax, -1.2, 1.2) * TUNING.bankMax * 1.35;
     }
 
-    const w = TUNING.tiltOmega; // critically damped: ζ = 1
+    const w = st.flightPhase !== 'surface' ? 12 : TUNING.tiltOmega; // critically damped: ζ = 1
     this.pitchVel += (w * w * (pitchT - this.pitch) - 2 * w * this.pitchVel) * dt;
     this.pitch += this.pitchVel * dt;
     this.rollVel += (w * w * (rollT - this.roll) - 2 * w * this.rollVel) * dt;
@@ -1934,7 +2976,7 @@ export class Boat implements IBoat {
 
     this.driftTrailCd -= dt;
     this.opponentDriftSprayCd -= dt;
-    if (input.drift && st.boostCharge > 0.04 && speedAbs > TUNING.driftMinSpeed && this.driftTrailCd <= 0) {
+    if (effectiveDrift && st.boostCharge > 0.04 && speedAbs > TUNING.driftMinSpeed && this.driftTrailCd <= 0) {
       const opponent = this.id > 0;
       this.driftTrailCd = opponent ? 0.052 / this.opponentFxScale : 0.05;
       const side = Math.abs(this.lateralG) > 0.5 ? (this.lateralG > 0 ? -1 : 1) : (steer >= 0 ? 1 : -1);
@@ -1960,7 +3002,7 @@ export class Boat implements IBoat {
     // Opponent technique must be readable in the world, not through another
     // HUD badge. Two short stern sprays mark a real drift input, with a simple
     // distance LOD to avoid filling the horizon when the field spreads out.
-    if (this.id > 0 && input.drift && !st.airborne && st.flightPhase === 'surface' &&
+    if (this.id > 0 && effectiveDrift && !st.airborne && st.flightPhase === 'surface' &&
         speedAbs > TUNING.driftMinSpeed && this.opponentDriftSprayCd <= 0) {
       this.opponentDriftSprayCd = 0.075 / this.opponentFxScale;
       for (const streamSide of [-1, 1]) {
@@ -1977,12 +3019,128 @@ export class Boat implements IBoat {
     this.updateThrustVisual(dt, t, boosting, st.flightThrust, fwdX, fwdZ, portX, portZ);
     this.updateWingAndRotorVisual(dt, t, flightWasActive, vF, steer);
 
+    // ---- surface ground effect update ----
+    if (!flightWasActive) {
+      const clearance = pos.y - surfaceY;
+      let groundSigma = 0;
+      if (clearance >= TUNING.groundEffectMinAlt && clearance <= TUNING.groundEffectMaxAlt) {
+        if (clearance >= TUNING.groundEffectPeakAltHi) {
+          const tPos = (TUNING.groundEffectMaxAlt - clearance) / (TUNING.groundEffectMaxAlt - TUNING.groundEffectPeakAltHi);
+          groundSigma = tPos * tPos * (3 - 2 * tPos);
+        } else if (clearance >= TUNING.groundEffectPeakAltLo) {
+          groundSigma = 1.0;
+        } else {
+          const tPos = (clearance - TUNING.groundEffectMinAlt) / (TUNING.groundEffectPeakAltLo - TUNING.groundEffectMinAlt);
+          groundSigma = tPos * tPos * (3 - 2 * tPos);
+        }
+      }
+      this.groundEffect = groundSigma;
+      st.groundEffect = groundSigma;
+      this.groundResonance = 0;
+      st.groundResonance = 0;
+      if (st.flightCharges < 2 && speedAbs > 10) {
+        this.groundResonanceCharge = Math.min(1.0, this.groundResonanceCharge + dt * 0.28);
+        if (this.groundResonanceCharge >= 1.0) {
+          st.flightCharges = Math.min(2, st.flightCharges + 1);
+          this.liftBurstTimer = 0.22;
+          this.groundResonanceCharge = 0;
+        }
+      } else {
+        this.groundResonanceCharge = Math.max(0, this.groundResonanceCharge - dt * 0.5);
+      }
+      st.groundResonanceCharge = this.groundResonanceCharge;
+    }
+
+    // ---- ground effect surface wind vortex streamlines & resonance sparkles ----
+    if (this.groundEffect > 0.15 && speedAbs > 14) {
+      this.groundTrailCd -= dt;
+      if (this.groundTrailCd <= 0) {
+        const opponent = this.id > 0;
+        this.groundTrailCd = TUNING.groundEffectTrailPeriod / this.opponentFxScale;
+        const tipSpan = 1.85;
+        const waterY = surfaceY + 0.05;
+        const streamSpeed = 0.32 * vF;
+        // Port wingtip ground vortex
+        this.trail.emit(
+          pos.x + portX * tipSpan - fwdX * 0.15,
+          waterY,
+          pos.z + portZ * tipSpan - fwdZ * 0.15,
+          -fwdX * streamSpeed + portX * 1.6,
+          0.12,
+          -fwdZ * streamSpeed + portZ * 1.6,
+          0xffffff,
+          (opponent ? 0.22 : 0.16) + this.groundEffect * 0.08,
+          0.36,
+        );
+        // Starboard wingtip ground vortex
+        this.trail.emit(
+          pos.x - portX * tipSpan - fwdX * 0.15,
+          waterY,
+          pos.z - portZ * tipSpan - fwdZ * 0.15,
+          -fwdX * streamSpeed - portX * 1.6,
+          0.12,
+          -fwdZ * streamSpeed - portZ * 1.6,
+          0xffffff,
+          (opponent ? 0.22 : 0.16) + this.groundEffect * 0.08,
+          0.36,
+        );
+        // Resonant sunlit sparkle motes when in active resonance
+        if (this.groundResonance > 0.35 && !opponent) {
+          this.trail.emit(
+            pos.x - fwdX * 0.4,
+            waterY + 0.04,
+            pos.z - fwdZ * 0.4,
+            -fwdX * 0.4,
+            0.35,
+            -fwdZ * 0.4,
+            PALETTE.sun,
+            0.12 + this.groundResonance * 0.06,
+            0.32,
+          );
+        }
+      }
+    } else {
+      this.groundTrailCd = 0;
+    }
+
+    // ---- thermal updraft sun motes & wind tunnel jet streamlines ----
+    if (this.thermalUpdraft > 0.2 && this.id === 0) {
+      this.trail.emit(
+        pos.x + portX * (Math.sin(t * 19) * 1.5) - fwdX * 0.4,
+        pos.y + 0.35,
+        pos.z + portZ * (Math.sin(t * 19) * 1.5) - fwdZ * 0.4,
+        -fwdX * 0.3,
+        1.5 + this.thermalUpdraft * 1.8,
+        -fwdZ * 0.3,
+        PALETTE.sun,
+        0.16 + this.thermalUpdraft * 0.1,
+        0.42,
+      );
+    }
+    if (this.windTunnelBoost > 0.25) {
+      const tipSpan = 2.1;
+      for (const side of [-1, 1]) {
+        this.trail.emit(
+          pos.x + portX * tipSpan * side - fwdX * 0.25,
+          pos.y + 0.12,
+          pos.z + portZ * tipSpan * side - fwdZ * 0.25,
+          -fwdX * (1.5 + this.windTunnelBoost * 2.8),
+          0.05,
+          -fwdZ * (1.5 + this.windTunnelBoost * 2.8),
+          0xffffff,
+          0.18 + this.windTunnelBoost * 0.12,
+          0.36,
+        );
+      }
+    }
+
     // ---- state ----
     st.speed = vF;
     st.throttle = thr;
     st.steer = steer;
-    st.drifting = input.drift;
-    st.driftReleaseReady = input.drift && st.flightPhase === 'surface' &&
+    const currentDrift = (input.drift || (st.flightPhase === 'surface' && input.airBrake && !surfaceReturnBrake)) && st.flightPhase === 'surface';
+    st.drifting = currentDrift || this.wasDrifting;
+    st.driftReleaseReady = st.drifting && st.flightPhase === 'surface' &&
       speedAbs > TUNING.driftMinSpeed && st.boostCharge >= TUNING.boostReleaseMin;
     st.boosting = boosting;
     st.boostRemaining = boosting && this.boostTotal > 0 ? clamp(this.boostTimer / this.boostTotal, 0, 1) : 0;
@@ -1991,6 +3149,8 @@ export class Boat implements IBoat {
     st.flightAirBrake = this.airBrakeFx;
     st.flightExtensionReady = this.canExtendFlight();
     st.flightPressure = flightWasActive ? smooth01(clamp((speedAbs - TUNING.topSpeed) / 14, 0, 1)) : 0;
+    st.thermalUpdraft = this.thermalUpdraft;
+    st.windTunnelBoost = this.windTunnelBoost;
     st.lateralG = this.lateralG;
     st.longG = longG;
     st.heading = this.heading;
@@ -1999,6 +3159,7 @@ export class Boat implements IBoat {
       0,
       1,
     );
+    this.prevPosForTunnel.copy(pos);
     // st.position / st.quaternion are live references — already current.
   }
 
@@ -2226,21 +3387,31 @@ export class Boat implements IBoat {
     this.rotorSpeed += (targetRotorSpeed - this.rotorSpeed) * (1 - Math.exp(-rotorAccel * dt));
     this.rotorAngle = (this.rotorAngle + this.rotorSpeed * dt) % (Math.PI * 2);
 
-    // Dynamic wing angles
+    // Dynamic wing angles with aerodynamic loading flex
     const deploy = this.wingDeploy;
     const steerTrim = flightActive ? steer * 0.12 : 0;
-    const flutter = flightActive ? Math.sin(t * 16 + this.id * 1.5) * 0.015 : 0;
+    // Thermal updraft: intensified high-freq flutter simulating convective turbulence
+    const thermalFlutter = this.thermalUpdraft * Math.sin(t * 28 + this.id * 2.3) * 0.035;
+    const flutter = flightActive ? Math.sin(t * 16 + this.id * 1.5) * 0.015 + thermalFlutter : 0;
+    // Wood airframe stress & high-speed dive shudder (老柚木机翼高速俯冲与受力微震颤)
+    const diveShudder = (this.aeroPitch < -0.15 ? (-this.aeroPitch - 0.15) * 0.05 : 0) * (speedAbs > 12 ? Math.min(1.4, speedAbs / 24) : 0);
+    const gShudder = Math.abs(this.lateralG) > 6 ? (Math.abs(this.lateralG) - 6) * 0.0035 : 0;
+    const woodShudder = flightActive ? Math.sin(t * 36.0 + this.id * 1.7) * (diveShudder + gShudder) : 0;
+    // Wind tunnel: forward sweep flex as high-speed aerodynamic loading compresses wing
+    const tunnelSweep = this.windTunnelBoost * 0.06;
+    const aeroFlex = flightActive ? clamp((speedAbs - TUNING.topSpeed) / 20, -0.05, 0.08) + tunnelSweep : 0;
+    const pitchTrim = flightActive ? this.aeroPitch * 0.25 : 0;
 
     // Port wing (left, +X): folded swept back -1.45 rad, deployed wide +0.04 rad
-    const portYaw = -1.45 * (1 - deploy) + 0.04 * deploy;
-    const portRoll = -0.12 * (1 - deploy) + (0.08 + flutter - steerTrim) * deploy;
-    const portPitch = -0.04 * (1 - deploy) + (0.02 + flutter * 0.5) * deploy;
+    const portYaw = -1.45 * (1 - deploy) + (0.04 - aeroFlex * 0.5) * deploy;
+    const portRoll = -0.12 * (1 - deploy) + (0.08 + flutter + woodShudder - steerTrim + aeroFlex) * deploy;
+    const portPitch = -0.04 * (1 - deploy) + (0.02 + flutter * 0.5 + pitchTrim + woodShudder * 0.3) * deploy;
     this.portWing.rotation.set(portPitch, portYaw, portRoll, 'YXZ');
 
     // Starboard wing (right, -X): folded swept back +1.45 rad, deployed wide -0.04 rad
-    const stbdYaw = 1.45 * (1 - deploy) - 0.04 * deploy;
-    const stbdRoll = 0.12 * (1 - deploy) - (0.08 + flutter + steerTrim) * deploy;
-    const stbdPitch = -0.04 * (1 - deploy) + (0.02 + flutter * 0.5) * deploy;
+    const stbdYaw = 1.45 * (1 - deploy) - (0.04 - aeroFlex * 0.5) * deploy;
+    const stbdRoll = 0.12 * (1 - deploy) - (0.08 + flutter + woodShudder + steerTrim + aeroFlex) * deploy;
+    const stbdPitch = -0.04 * (1 - deploy) + (0.02 + flutter * 0.5 + pitchTrim + woodShudder * 0.3) * deploy;
     this.stbdWing.rotation.set(stbdPitch, stbdYaw, stbdRoll, 'YXZ');
 
     // Rotor pylon mast tilt & rotor blade spin
@@ -2250,11 +3421,74 @@ export class Boat implements IBoat {
 
     this.portRotorBlades.rotation.y = this.rotorAngle;
     this.stbdRotorBlades.rotation.y = -this.rotorAngle;
+
+    // Pilot-specific auxiliary animations
+    if (this.visualAssembly.extra?.pinwheels) {
+      for (const pw of this.visualAssembly.extra.pinwheels) {
+        pw.rotation.z = (pw.rotation.z + this.rotorSpeed * 2.2 * dt) % (Math.PI * 2);
+      }
+    }
+    if (this.visualAssembly.extra?.baguaRing) {
+      this.visualAssembly.extra.baguaRing.rotation.y = (this.visualAssembly.extra.baguaRing.rotation.y + (flightActive ? 1.8 : 0.45) * dt) % (Math.PI * 2);
+      this.visualAssembly.extra.baguaRing.rotation.z = Math.sin(t * 1.5) * 0.08;
+    }
+    if (this.visualAssembly.extra?.canards) {
+      for (const canard of this.visualAssembly.extra.canards) {
+        canard.rotation.x = this.aeroPitch * 0.45 - (flightActive ? steer * 0.12 : 0);
+      }
+    }
+    if (this.visualAssembly.extra?.nozzles) {
+      const scaleN = 1 + (this.boostFx * 0.22 + this.flightFx * 0.14);
+      for (const nz of this.visualAssembly.extra.nozzles) {
+        nz.scale.set(scaleN, scaleN, 1 + this.boostFx * 0.35);
+      }
+    }
+  }
+
+  private rebuildVisual(color: number): void {
+    // 1. Remove old visualRoot
+    this.object.remove(this.visualRoot);
+    this.visualRoot.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose();
+      }
+    });
+
+    // 2. Build new visual assembly with current driver profile
+    this.visualAssembly = buildBoatVisual(this.id, color, this.driverProfileId);
+    this.visualRoot = this.visualAssembly.root;
+    this.object.add(this.visualRoot);
+
+    // 3. Update references
+    this.hullMaterial = this.visualAssembly.hullMaterial;
+    this.portWing = this.visualAssembly.portWing;
+    this.stbdWing = this.visualAssembly.stbdWing;
+    this.portRotorPylon = this.visualAssembly.portRotorPylon;
+    this.stbdRotorPylon = this.visualAssembly.stbdRotorPylon;
+    this.portRotorBlades = this.visualAssembly.portRotorBlades;
+    this.stbdRotorBlades = this.visualAssembly.stbdRotorBlades;
+
+    // 4. Re-apply initial pose
+    this.portWing.rotation.set(-0.04, -1.45, -0.12, 'YXZ');
+    this.stbdWing.rotation.set(-0.04, 1.45, 0.12, 'YXZ');
+    this.portRotorPylon.rotation.x = -0.42;
+    this.stbdRotorPylon.rotation.x = -0.42;
+
+    if (this.detailedInk) {
+      addOutline(this.visualRoot);
+      markInk(this.visualRoot);
+    }
   }
 
   beginFlightRouteAttempt(routeIndex: number, routeCursor: number, targetSpeed: number): void {
     const st = this.state;
     if (st.flightRouteState !== 'idle' || routeCursor !== st.flightRouteCursor || routeIndex < 0) return;
+    if (st.flightPhase === 'surface') {
+      this.flightElapsed = 0;
+      this.flightExtensionTime = 0;
+      st.flightExtensionUsed = false;
+      st.flightPhase = 'spool';
+    }
     st.flightRouteState = 'active';
     st.flightRouteIndex = routeIndex;
     this.flightTargetSpeed = clamp(targetSpeed, TUNING.topSpeed, TUNING.flightHardCap);
@@ -2327,14 +3561,20 @@ export class Boat implements IBoat {
     st.flightRouteMiss = true;
   }
 
-  setDriver(color: number, handling: DriverHandling): void {
-    this.hullMaterial.uniforms.uColor.value.setHex(color, THREE.NoColorSpace);
+  setDriver(color: number, handling: DriverHandling, profileId?: string): void {
     this.handling = {
       acceleration: clamp(handling.acceleration, 0.94, 1.06),
       steering: clamp(handling.steering, 0.94, 1.06),
       driftCharge: clamp(handling.driftCharge, 0.94, 1.06),
       airControl: clamp(handling.airControl, 0.94, 1.06),
     };
+    const nextProfile = profileId || this.driverProfileId;
+    if (nextProfile !== this.driverProfileId) {
+      this.driverProfileId = nextProfile;
+      this.rebuildVisual(color);
+    } else {
+      this.hullMaterial.uniforms.uColor.value.setHex(color, THREE.NoColorSpace);
+    }
   }
 
   /** Main-thread visual LOD; has no effect on physics or AI input. */
@@ -2358,6 +3598,25 @@ export class Boat implements IBoat {
       plumeLength: this.flightPlumeLength,
       deflection: this.flightFlowDeflection,
     };
+  }
+
+  debugGroundEffect(): { groundEffect: number; resonance: number; resonanceCharge: number } {
+    return {
+      groundEffect: this.groundEffect,
+      resonance: this.groundResonance,
+      resonanceCharge: this.groundResonanceCharge,
+    };
+  }
+
+  debugThermalAndTunnel(): { thermalUpdraft: number; windTunnelBoost: number } {
+    return {
+      thermalUpdraft: this.thermalUpdraft,
+      windTunnelBoost: this.windTunnelBoost,
+    };
+  }
+
+  setCourse(course: ICourse): void {
+    this.course = course;
   }
 
   /** Deterministic tuning evidence for the release harness. */
@@ -2427,7 +3686,15 @@ export class Boat implements IBoat {
     this.object.quaternion.setFromEuler(_euler);
   }
 
-  private updateFlight(dt: number, surfaceY: number, surfaceTargetY: number): void {
+  private updateFlight(
+    dt: number,
+    surfaceY: number,
+    surfaceTargetY: number,
+    thr: number,
+    vF: number,
+    input: BoatInput,
+    surfaceReturnBrake: boolean,
+  ): number {
     const st = this.state;
     const ascendAt = TUNING.flightSpool;
     const cruiseAt = ascendAt + TUNING.flightAscend;
@@ -2438,6 +3705,7 @@ export class Boat implements IBoat {
     if (firstFlightFrame) {
       this.flightStartClearance = this.object.position.y - surfaceY;
       this.flightTargetVy = 0;
+      this.aeroPitch = 0;
     }
     this.flightElapsed += dt;
 
@@ -2466,21 +3734,176 @@ export class Boat implements IBoat {
       thrust = 0.72 * (1 - p);
     }
 
+    // Pilot pitch control & AoA aerodynamics
+    // Cruising trims to streamlined neutral glide trim (-0.035 rad, ~-2 deg nose down)
+    // Air brake engagement flares nose up (+0.14 rad) for vector braking and aerodynamic deceleration
+    let targetPitch = phase === 'descending'
+      ? -0.06 + this.airBrakeFx * 0.12
+      : TUNING.neutralPitchTrim + this.airBrakeFx * 0.16;
+
+    // Ground effect proximity factor (Task 8.2 & Task 12.2: 翼地效应 1~3米浮力与气垫增益)
+    const clearance = this.object.position.y - surfaceY;
+    let groundSigma = 0;
+    if (clearance >= TUNING.groundEffectMinAlt && clearance <= TUNING.groundEffectMaxAlt) {
+      if (clearance >= TUNING.groundEffectPeakAltHi) {
+        const t = (TUNING.groundEffectMaxAlt - clearance) / (TUNING.groundEffectMaxAlt - TUNING.groundEffectPeakAltHi);
+        groundSigma = t * t * (3 - 2 * t);
+      } else if (clearance >= TUNING.groundEffectPeakAltLo) {
+        groundSigma = 1.0;
+      } else {
+        const t = (clearance - TUNING.groundEffectMinAlt) / (TUNING.groundEffectPeakAltLo - TUNING.groundEffectMinAlt);
+        groundSigma = t * t * (3 - 2 * t);
+      }
+    }
+    this.groundEffect = groundSigma;
+    st.groundEffect = groundSigma;
+
+    // Ground Auto-Level protection (防倒栽葱砸水：接近水面/地面 Y < 3m 时平缓拉平机头)
+    if (clearance < TUNING.groundAutoLevelAlt) {
+      const groundProximity = clamp((TUNING.groundAutoLevelAlt - clearance) / 2.5, 0, 1);
+      const autoLevelWeight = smooth01(groundProximity);
+      const flarePitch = TUNING.groundAutoLevelFlare + this.airBrakeFx * 0.14;
+      if (targetPitch < flarePitch || this.vy < 0) {
+        targetPitch = targetPitch * (1 - autoLevelWeight) + flarePitch * autoLevelWeight;
+      }
+      const pitchRate = TUNING.pitchControlRate + autoLevelWeight * 6.0;
+      this.aeroPitch += (targetPitch - this.aeroPitch) * (1 - Math.exp(-pitchRate * dt));
+    } else {
+      this.aeroPitch += (targetPitch - this.aeroPitch) * (1 - Math.exp(-TUNING.pitchControlRate * dt));
+    }
+
+    const totalAirSpeed = Math.hypot(vF, this.vy);
+    const safeAirSpeed = Math.max(2.0, totalAirSpeed);
+    const gamma = Math.atan2(this.vy, Math.max(1.0, vF)); // Flight path trajectory angle
+    const cosG = Math.cos(gamma);
+    const sinG = Math.sin(gamma);
+    const alpha = this.aeroPitch - gamma; // Angle of attack (迎角)
+
+    // Lift coefficient (cambered airfoil + linear slope + smooth post-stall dropoff + ground effect cushion)
+    let cL: number;
+    const absAlpha = Math.abs(alpha);
+    if (absAlpha <= TUNING.stallAngle) {
+      cL = TUNING.liftCoeff0 + TUNING.liftSlope * alpha;
+    } else {
+      const peakCl = TUNING.liftCoeff0 + TUNING.liftSlope * Math.sign(alpha) * TUNING.stallAngle;
+      const stallFade = Math.exp(-7.0 * (absAlpha - TUNING.stallAngle));
+      cL = peakCl * (TUNING.stallLiftDrop + (1 - TUNING.stallLiftDrop) * stallFade);
+    }
+    cL *= (1.0 + TUNING.groundEffectLiftMul * groundSigma);
+
+    // Drag coefficient (parasitic + induced + air-brake + separation drag, with ground effect + wind tunnel vortex suppression)
+    const cDi = TUNING.inducedDragK * cL * cL;
+    const cDiGround = cDi * (1.0 - TUNING.groundEffectDragCut * groundSigma)
+      * (1.0 - TUNING.windTunnelDragCut * this.windTunnelBoost);
+    const cDBrake = TUNING.airBrakeDragCoeff * this.airBrakeFx;
+    const cDStall = absAlpha > TUNING.stallAngle
+      ? 0.18 * (1 - Math.exp(-5.0 * (absAlpha - TUNING.stallAngle)))
+      : 0;
+    const cD = TUNING.dragCoeff0 + cDiGround + cDBrake + cDStall;
+
+    // Aerodynamic forces per unit mass: Qm = 0.5 * rho * V^2 * (S / m)
+    const qm = 0.5 * TUNING.airDensity * safeAirSpeed * safeAirSpeed * (TUNING.wingArea / TUNING.gliderMass);
+    const aLift = qm * cL;
+    const aDrag = qm * cD;
+
+    // Forward longitudinal acceleration from aerodynamics + propulsion + ground effect speed efficiency
+    const cruiseTarget = phase === 'descending'
+      ? TUNING.flightDescentSpeed
+      : this.flightTargetSpeed;
+    const speedTarget = cruiseTarget + (TUNING.airBrakeTargetSpeed - cruiseTarget) * this.airBrakeFx;
+    const speedError = speedTarget - vF;
+    const propThrustF = clamp(speedError * 2.2, -14, 18) * this.handling.acceleration;
+    // Aerodynamic gravity conversion & ground-effect forward acceleration
+    const aFGe = 3.6 * groundSigma * clamp(vF / 25, 0.4, 1.25);
+    const aF = -aDrag * cosG - aLift * sinG + propThrustF + aFGe;
+
+    // Proximity resonance charging (贴海掠行充能)
+    const speedAbs = Math.abs(vF);
+    let resonance = 0;
+    if (groundSigma > 0.15 && speedAbs > TUNING.groundResonanceSpeedMin && phase !== 'descending') {
+      resonance = groundSigma * clamp((speedAbs - 18) / 16, 0.0, 1.0);
+    }
+    this.groundResonance = resonance;
+    st.groundResonance = resonance;
+
+    if (resonance > 0.15) {
+      this.groundResonanceCharge = Math.min(1.0, this.groundResonanceCharge + dt * resonance * TUNING.groundResonanceRate);
+      if (this.groundResonanceCharge >= 1.0) {
+        if (st.flightCharges < 2) {
+          st.flightCharges++;
+          this.liftBurstTimer = 0.24;
+        }
+        this.groundResonanceCharge = 0;
+      }
+      if (st.boostCharge < 1.0) {
+        st.boostCharge = Math.min(1.0, st.boostCharge + dt * resonance * 0.35);
+      }
+    } else if (resonance <= 0.05) {
+      this.groundResonanceCharge = Math.max(0, this.groundResonanceCharge - dt * 0.4);
+    }
+    st.groundResonanceCharge = this.groundResonanceCharge;
+
+    // Thermal updraft vertical lift & flight duration preservation (Task 8.3)
+    const pos = this.object.position;
+    const thermalSample = this.course?.sampleThermalUpdraft(pos);
+    if (thermalSample && thermalSample.intensity > 0.01) {
+      this.thermalUpdraft += (thermalSample.intensity - this.thermalUpdraft) * (1 - Math.exp(-12 * dt));
+      // Vertical lift: pull vy toward thermal liftSpeed
+      this.vy += this.thermalUpdraft * Math.max(0, thermalSample.liftSpeed - this.vy) * TUNING.thermalCouplingK * dt;
+      // Preserve flight duration inside thermals (slow elapsed timer)
+      if (phase !== 'descending') {
+        this.flightElapsed -= dt * this.thermalUpdraft * TUNING.thermalExtendRate;
+        this.flightElapsed = Math.max(0, this.flightElapsed);
+      }
+    } else {
+      this.thermalUpdraft = Math.max(0, this.thermalUpdraft - dt * 3.5);
+    }
+    st.thermalUpdraft = this.thermalUpdraft;
+
+    // Wind tunnel slingshot boost & induced drag reduction (Task 8.3)
+    const tunnelSample = this.course?.sampleWindTunnel(pos, this.prevPosForTunnel);
+    if (tunnelSample) {
+      this.windTunnelBoost += (tunnelSample.inside - this.windTunnelBoost) * (1 - Math.exp(-8 * dt));
+      if (tunnelSample.ringPassed) {
+        // Slingshot forward velocity boost on ring crossing
+        const boostTarget = vF * TUNING.windTunnelBoostMul;
+        vF += clamp(boostTarget - vF, 0, 18) * 0.55;
+        this.liftBurstTimer = Math.max(this.liftBurstTimer, 0.18);
+      }
+    } else {
+      this.windTunnelBoost = Math.max(0, this.windTunnelBoost - dt * 2.8);
+    }
+    st.windTunnelBoost = this.windTunnelBoost;
+
+    // Vertical tracking with wave feedforward + aerodynamic pitch authority + air cushion
     const desiredY = surfaceY + targetClearance;
     if (firstFlightFrame) this.flightDesiredYPrev = desiredY;
     const rawTargetVy = clamp((desiredY - this.flightDesiredYPrev) / Math.max(1e-4, dt), -14, 14);
     this.flightTargetVy += (rawTargetVy - this.flightTargetVy) * (1 - Math.exp(-18 * dt));
     this.flightDesiredYPrev = desiredY;
+
     const w = TUNING.flightOmega;
-    // Track the moving wave reference as well as its position. Without this
-    // feed-forward term, a fast boat chases the previous crest and its visible
-    // clearance can swing by almost a metre even during controlled cruise.
-    const ay = clamp(
+    const aY = clamp(
       w * w * (desiredY - this.object.position.y) + 2 * w * (this.flightTargetVy - this.vy),
       -TUNING.flightAccelMax,
       TUNING.flightAccelMax,
     );
-    this.vy += ay * dt;
+
+    // Integrate velocities
+    vF += aF * dt;
+    this.vy += aY * dt;
+    // Ground Air Cushion protection: when descending near surface (clearance < 3m & vy < 0)
+    if (this.vy < 0 && clearance < TUNING.groundAutoLevelAlt) {
+      const cushionIntensity = smooth01(clamp((TUNING.groundAutoLevelAlt - clearance) / 2.75, 0, 1));
+      const sinkSpeed = Math.max(0, -this.vy);
+      const dynamicLiftBoost = qm * 0.42 * cushionIntensity;
+      const sinkDamping = sinkSpeed * TUNING.groundCushionSinkDamp * cushionIntensity;
+      const aCushion = (TUNING.groundEffectCushionK * cushionIntensity + dynamicLiftBoost + sinkDamping) * Math.max(0.2, groundSigma);
+      this.vy += aCushion * dt;
+    }
+    vF = clamp(vF, -TUNING.reverseSpeed, TUNING.diveSpeedCap);
+    this.vy = clamp(this.vy, -22, 18);
+
     this.object.position.y += this.vy * dt;
     st.flightPhase = phase;
     st.flightRemaining = clamp(1 - this.flightElapsed / total, 0, 1);
@@ -2489,19 +3912,47 @@ export class Boat implements IBoat {
     st.airTime = 0;
 
     const landingTimedOut = this.flightElapsed >= total + 0.3;
-    if (this.flightElapsed >= total && (this.object.position.y <= surfaceTargetY + 0.25 || landingTimedOut)) {
+    const touchingWater = this.object.position.y <= surfaceTargetY + 0.25;
+    if ((this.flightElapsed >= total && (touchingWater || landingTimedOut)) ||
+        (phase === 'descending' && this.object.position.y <= surfaceTargetY + 0.1)) {
       this.object.position.y = surfaceTargetY;
+      const landingImpact = Math.max(0, -this.vy);
       this.vy = 0;
       this.unloadTime = 0;
       this.flightElapsed = 0;
       this.flightExtensionTime = 0;
       this.flightTargetVy = 0;
+      this.aeroPitch = 0;
       st.flightPhase = 'surface';
       st.flightRemaining = 0;
       st.flightExtensionReady = false;
       st.flightExtensionUsed = false;
       st.flightThrust = 0;
+      st.landImpulse = Math.max(st.landImpulse, landingImpact);
+
+      // Air-brake to Drift Landing Handoff (空中刹车落地无缝切入切水漂移)
+      const brakingIntoLand = input.airBrake || this.airBrakeFx > 0.08 || input.drift;
+      if (brakingIntoLand && !surfaceReturnBrake) {
+        this.wasDrifting = true;
+        st.drifting = true;
+        if (Math.abs(vF) > TUNING.driftMinSpeed) {
+          st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
+        }
+        const fwdX = Math.sin(this.heading);
+        const fwdZ = Math.cos(this.heading);
+        const portX = fwdZ;
+        const portZ = -fwdX;
+        const W = TUNING.sampleLat;
+        _v1.set(this.object.position.x - fwdX * 2.1, surfaceY + 0.06, this.object.position.z - fwdZ * 2.1);
+        this.spray.burst(_v1, this.id === 0 ? 16 : 8, 4.2 + Math.abs(vF) * 0.15);
+        _v2.set(this.object.position.x + portX * (W + 0.15) - fwdX * 0.8, surfaceY + 0.06, this.object.position.z + portZ * (W + 0.15) - fwdZ * 0.8);
+        _v3.set(this.object.position.x - portX * (W + 0.15) - fwdX * 0.8, surfaceY + 0.06, this.object.position.z - portZ * (W + 0.15) - fwdZ * 0.8);
+        this.spray.burst(_v2, this.id === 0 ? 8 : 4, 3.2 + Math.abs(vF) * 0.1);
+        this.spray.burst(_v3, this.id === 0 ? 8 : 4, 3.2 + Math.abs(vF) * 0.1);
+      }
     }
+
+    return vF;
   }
 
   teleport(x: number, z: number, heading: number): void {
@@ -2513,6 +3964,7 @@ export class Boat implements IBoat {
     this.unloadTime = 0;
     this.pitch = 0;
     this.pitchVel = 0;
+    this.aeroPitch = 0;
     this.roll = 0;
     this.rollVel = 0;
     this.boostTimer = 0;
@@ -2524,6 +3976,10 @@ export class Boat implements IBoat {
     this.flightDesiredYPrev = 0;
     this.flightTargetVy = 0;
     this.flightPenaltyApplied = false;
+    this.groundEffect = 0;
+    this.groundResonance = 0;
+    this.groundResonanceCharge = 0;
+    this.groundTrailCd = 0;
     this.prevSpeed = 0;
     this.lateralG = 0;
     this.turnSprayCd = 0;
@@ -2542,6 +3998,11 @@ export class Boat implements IBoat {
     this.flightRingActiveCount = 0;
     this.flightPlumeLength = 0;
     this.flightFlowDeflection = 0;
+    this.thermalUpdraft = 0;
+    this.windTunnelBoost = 0;
+    this.groundEffect = 0;
+    this.groundResonance = 0;
+    this.groundResonanceCharge = 0;
     this.wingDeploy = 0;
     this.rotorAngle = 0;
     this.rotorSpeed = 0;
@@ -2557,7 +4018,7 @@ export class Boat implements IBoat {
     st.driftBankProgress = 0;
     st.driftReleaseReady = false;
     st.boostRemaining = 0;
-    st.flightCharges = 0;
+    st.flightCharges = this.id === 0 ? 2 : 1;
     st.flightPhase = 'surface';
     st.flightRemaining = 0;
     st.flightExtensionReady = false;
@@ -2577,6 +4038,11 @@ export class Boat implements IBoat {
     st.flightFailure = null;
     st.flightGateProgress = 0;
     st.flightPenaltyRemaining = 0;
+    st.groundEffect = 0;
+    st.groundResonance = 0;
+    st.groundResonanceCharge = 0;
+    st.thermalUpdraft = 0;
+    st.windTunnelBoost = 0;
     st.airborne = false;
     st.airTime = 0;
     st.landImpulse = 0;

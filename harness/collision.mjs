@@ -159,5 +159,7 @@ try {
   }, null, 2));
   await browser.close();
 } finally {
-  server.kill('SIGTERM');
+  try {
+    server.kill('SIGKILL');
+  } catch {}
 }

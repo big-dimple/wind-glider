@@ -18,6 +18,7 @@ fi
 publisher="${PUBLISH_CHECKED_SH:-}"
 if [[ -z "$publisher" ]]; then
   for candidate in \
+    "/root/.gemini/config/skills/github-operator/scripts/publish-checked.sh" \
     "${CODEX_HOME:-$HOME/.codex}/skills/github-operator/scripts/publish-checked.sh" \
     "$HOME/.codex/skills/github-operator/scripts/publish-checked.sh"; do
     if [[ -x "$candidate" ]]; then

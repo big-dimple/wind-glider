@@ -184,6 +184,16 @@ export interface BoatState {
   flightGateProgress: number;
   /** Seconds of reduced forward drive remaining after a route failure. */
   flightPenaltyRemaining: number;
+  /** 0..1 current ground effect aerodynamic strength (wing-in-ground effect cushion). */
+  groundEffect: number;
+  /** 0..1 proximity resonance intensity during low-altitude high-speed skimming. */
+  groundResonance: number;
+  /** 0..1 current proximity resonance accumulator progress towards earning a flight stone. */
+  groundResonanceCharge: number;
+  /** 0..1 current thermal updraft aerodynamic lift intensity. */
+  thermalUpdraft: number;
+  /** 0..1 current wind tunnel slipstream / slingshot boost intensity. */
+  windTunnelBoost: number;
   airborne: boolean;
   airTime: number;
   /** >0 only on the frame a landing impact happens; magnitude = impact speed m/s. */
@@ -266,6 +276,52 @@ export interface CourseSample {
   routeId: CourseRouteId;
 }
 
+export interface ThermalUpdraftDef {
+  id: string;
+  name: string;
+  x: number;
+  z: number;
+  baseY: number;
+  height: number;
+  radius: number;
+  coreRadius: number;
+  liftSpeed: number;
+}
+
+export interface ThermalSample {
+  intensity: number;
+  liftSpeed: number;
+  centerX: number;
+  centerZ: number;
+}
+
+export interface WindRingDef {
+  x: number;
+  y: number;
+  z: number;
+  dirX: number;
+  dirY: number;
+  dirZ: number;
+  radius: number;
+}
+
+export interface WindTunnelDef {
+  id: string;
+  name: string;
+  rings: readonly WindRingDef[];
+  targetSpeed: number;
+  boostStrength: number;
+}
+
+export interface WindTunnelSample {
+  inside: number;
+  boost: number;
+  dirX: number;
+  dirY: number;
+  dirZ: number;
+  ringPassed: boolean;
+}
+
 export interface ICourse {
   readonly object: THREE.Object3D;
   /** Total lap length in meters. */
@@ -273,6 +329,8 @@ export interface ICourse {
   /** Number of checkpoint gates (start/finish excluded). */
   readonly checkpoints: number;
   readonly flightRoutes: readonly FlightRouteDefinition[];
+  readonly thermalUpdrafts: readonly ThermalUpdraftDef[];
+  readonly windTunnels: readonly WindTunnelDef[];
   /** Compatibility aliases for the first authored segment. */
   readonly flightEntryU: number;
   readonly flightExitU: number;
@@ -283,6 +341,8 @@ export interface ICourse {
   routeTangentAt(routeId: CourseRouteId, u: number, out: THREE.Vector3): THREE.Vector3;
   /** Nearest-spline lookup for progress + wrong-way detection. */
   sample(pos: THREE.Vector3, out: CourseSample, routeHint?: CourseRouteId): CourseSample;
+  sampleThermalUpdraft(pos: THREE.Vector3, out?: ThermalSample): ThermalSample | null;
+  sampleWindTunnel(pos: THREE.Vector3, prevPos: THREE.Vector3, out?: WindTunnelSample): WindTunnelSample | null;
   routeForBoat(id: number): CourseRouteId;
   flightTurnWarning(id: number): boolean;
   /** Swept, bidirectional crossing of the visible golden Final portal. */

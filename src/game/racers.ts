@@ -1,11 +1,11 @@
 import type { RacerDefinition } from '../contracts';
 import { PALETTE } from '../core/palette';
-import lingfengPortrait from '../assets/drivers/lingfeng.webp';
-import yunquePortrait from '../assets/drivers/yunque.webp';
-import riyuPortrait from '../assets/drivers/riyu.webp';
-import bolanPortrait from '../assets/drivers/bolan.webp';
-import qinglanPortrait from '../assets/drivers/qinglan.webp';
-import fenglinPortrait from '../assets/drivers/fenglin.webp';
+import sushiPortrait from '../assets/drivers/sushi.webp';
+import qingzhaoPortrait from '../assets/drivers/qingzhao.webp';
+import xiaofengPortrait from '../assets/drivers/xiaofeng.webp';
+import zhoubotongPortrait from '../assets/drivers/zhoubotong.webp';
+import kongmingPortrait from '../assets/drivers/kongming.webp';
+import wawaPortrait from '../assets/drivers/wawa.webp';
 
 export type DriverMood = '沉稳' | '骄傲' | '愤怒' | '专注' | '兴奋' | '冷酷';
 
@@ -14,6 +14,48 @@ export interface DriverHandling {
   steering: number;
   driftCharge: number;
   airControl: number;
+}
+
+export type PilotCapeType =
+  | 'twin_scarf'
+  | 'silk_ribbon'
+  | 'hero_cape'
+  | 'storm_cloak'
+  | 'scholar_mantle'
+  | 'furin_cloak';
+
+export type PilotHeadgearType =
+  | 'scholar_topknot'
+  | 'qing_ribbon_bun'
+  | 'hero_longhair'
+  | 'aviator_beard_hat'
+  | 'astrolabe_crown'
+  | 'cat_ear_hood';
+
+export type PilotGogglesType =
+  | 'brass_pilot'
+  | 'gold_thin'
+  | 'leather_brow'
+  | 'brass_monocle'
+  | 'silver_scholar'
+  | 'brass_round';
+
+export interface PilotVisualConfig {
+  suitColor: number;
+  secondaryColor: number;
+  capeColor: number;
+  capeTrimColor: number;
+  gogglesColor: number;
+  gogglesLensColor: number;
+  skinColor: number;
+  hairColor: number;
+  headgearColor: number;
+  capeType: PilotCapeType;
+  headgearType: PilotHeadgearType;
+  gogglesType: PilotGogglesType;
+  hasShoulderPads?: boolean;
+  hasBeard?: boolean;
+  hasFurinBell?: boolean;
 }
 
 export interface DriverProfile {
@@ -35,53 +77,110 @@ export interface DriverProfile {
   weakness: string;
   quote: string;
   handling: DriverHandling;
+  pilotVisual: PilotVisualConfig;
   rivalRank: number;
 }
 
 const DRIVER_STORAGE_KEY = 'board-race:driver:v1';
 
-/** Adult glider pilots. Every player-facing handling modifier stays within +/-6%. */
+/** 6 Master Glider Pilots with unique 3D cockpit avatars & dynamic scarf physics. */
 export const DRIVER_PROFILES: readonly DriverProfile[] = [
   {
-    id: 'lingfeng', name: '凌风', callsign: '晴空手', age: 28, pronouns: '他', portraitUrl: lingfengPortrait, portraitPosition: '50% 15%',
+    id: 'sushi', name: '苏轼', callsign: '御风客', age: 38, pronouns: '他', portraitUrl: sushiPortrait, portraitPosition: '50% 15%',
     color: PALETTE.hullPlayer, personality: 'clean', pace: 0.985, mood: '沉稳', moodIcon: '◆',
-    specialty: '平衡滑翔手', strength: '入弯稳健，空中修正宽容', weakness: '爆发力并非最高',
-    quote: '让气流替我说话。', handling: { acceleration: 1, steering: 1, driftCharge: 1, airControl: 1.04 }, rivalRank: 2,
+    specialty: '平衡全能型 · 晴空信天翁', strength: '长距滑翔稳健，入弯与空中修正极宽容', weakness: '爆发冲刺稍缓',
+    quote: '九万里风斯在下，且引轻舟入碧霄。', handling: { acceleration: 1, steering: 1, driftCharge: 1, airControl: 1.04 },
+    pilotVisual: {
+      suitColor: 0x587D6B, secondaryColor: 0xFAF6EB,
+      capeColor: 0xFAF6EB, capeTrimColor: 0xE6DCB8,
+      gogglesColor: 0xDDA73A, gogglesLensColor: 0x80C4E8,
+      skinColor: 0xF8D8BE, hairColor: 0xE8ECEE, headgearColor: 0x587D6B,
+      capeType: 'twin_scarf', headgearType: 'scholar_topknot', gogglesType: 'brass_pilot',
+      hasBeard: true,
+    },
+    rivalRank: 2,
   },
   {
-    id: 'yunque', name: '云雀', callsign: '风谷女儿', age: 27, pronouns: '她', portraitUrl: yunquePortrait, portraitPosition: '50% 15%',
-    color: PALETTE.hullNova, personality: 'clean', pace: 0.99, mood: '冷酷', moodIcon: '◈',
-    specialty: '飞行专家', strength: '空刹精准，姿态恢复最快', weakness: '水面蓄能稍慢',
-    quote: '别眨眼，高空只给一次机会。', handling: { acceleration: 0.99, steering: 1.01, driftCharge: 0.96, airControl: 1.06 }, rivalRank: 4,
+    id: 'qingzhao', name: '清照', callsign: '乘风羽', age: 27, pronouns: '她', portraitUrl: qingzhaoPortrait, portraitPosition: '50% 15%',
+    color: PALETTE.hullNova, personality: 'clean', pace: 0.99, mood: '专注', moodIcon: '◈',
+    specialty: '轻量敏捷空刹型 · 风谷蜻蜓', strength: '空刹制动极精准，狭窄空岛航线姿态恢复最快', weakness: '大浪水面抗颠簸稍弱',
+    quote: '风休住，蓬舟吹取三山去！', handling: { acceleration: 0.99, steering: 1.01, driftCharge: 0.96, airControl: 1.06 },
+    pilotVisual: {
+      suitColor: 0x4A8C7D, secondaryColor: 0x78B8AA,
+      capeColor: 0x8AC8BA, capeTrimColor: 0xB5E5DA,
+      gogglesColor: 0xE5B84B, gogglesLensColor: 0x9EE2EE,
+      skinColor: 0xFCEDE0, hairColor: 0x221E20, headgearColor: 0x7A583A,
+      capeType: 'silk_ribbon', headgearType: 'qing_ribbon_bun', gogglesType: 'gold_thin',
+    },
+    rivalRank: 4,
   },
   {
-    id: 'riyu', name: '日羽', callsign: '天空信使', age: 26, pronouns: '她', portraitUrl: riyuPortrait, portraitPosition: '50% 15%',
+    id: 'xiaofeng', name: '萧峰', callsign: '九霄豪侠', age: 32, pronouns: '他', portraitUrl: xiaofengPortrait, portraitPosition: '50% 15%',
     color: PALETTE.hullKai, personality: 'aggressive', pace: 1.01, mood: '骄傲', moodIcon: '▲',
-    specialty: '起飞猎手', strength: '加速强，超越窗口大胆', weakness: '急弯容易推头',
-    quote: '第一名的云层，阳光最好。', handling: { acceleration: 1.05, steering: 0.97, driftCharge: 1.02, airControl: 0.99 }, rivalRank: 5,
+    specialty: '俯冲极速爆发型 · 赤炎狂龙', strength: '大角度俯冲推力狂暴，弯道超越窗口坚决果断', weakness: '极速转弯惯性大需提前收线',
+    quote: '大丈夫顶天立地，自当乘长风破万里重浪！', handling: { acceleration: 1.05, steering: 0.97, driftCharge: 1.02, airControl: 0.99 },
+    pilotVisual: {
+      suitColor: 0x7A2A1E, secondaryColor: 0x5C3A24,
+      capeColor: 0xC22B22, capeTrimColor: 0xE04838,
+      gogglesColor: 0x4A2218, gogglesLensColor: 0xDDA73A,
+      skinColor: 0xE6B898, hairColor: 0x18181A, headgearColor: 0x4A2218,
+      capeType: 'hero_cape', headgearType: 'hero_longhair', gogglesType: 'leather_brow',
+      hasShoulderPads: true,
+    },
+    rivalRank: 5,
   },
   {
-    id: 'bolan', name: '波澜', callsign: '海风老手', age: 51, pronouns: '他', portraitUrl: bolanPortrait, portraitPosition: '50% 15%',
+    id: 'zhoubotong', name: '舟伯通', callsign: '海风老爹', age: 58, pronouns: '他', portraitUrl: zhoubotongPortrait, portraitPosition: '50% 15%',
     color: PALETTE.hullReef, personality: 'aggressive', pace: 1.025, mood: '愤怒', moodIcon: '!',
-    specialty: '贴身强压', strength: '晚刹、卡位、出弯速度极强', weakness: '持续压迫时线路偏险',
-    quote: '我在天上跑了三十年，轮到你了。', handling: { acceleration: 1.04, steering: 1.03, driftCharge: 1.04, airControl: 0.98 }, rivalRank: 6,
+    specialty: '双体抗颠簸稳重型 · 顽童重锤', strength: '抗风浪冲击极强，晚刹卡位与贴海出弯力量十足', weakness: '机体自重稍大，爬升相对耗能',
+    quote: '好玩好玩！看老夫左右互搏，把风头全抢过来！', handling: { acceleration: 1.04, steering: 1.03, driftCharge: 1.04, airControl: 0.98 },
+    pilotVisual: {
+      suitColor: 0x465A42, secondaryColor: 0xF0EAE1,
+      capeColor: 0x1E422C, capeTrimColor: 0x3A6A4B,
+      gogglesColor: 0xC8963E, gogglesLensColor: 0x58D4E2,
+      skinColor: 0xE8BA9A, hairColor: 0xF0F0F0, headgearColor: 0x5C4A3A,
+      capeType: 'storm_cloak', headgearType: 'aviator_beard_hat', gogglesType: 'brass_monocle',
+      hasBeard: true,
+    },
+    rivalRank: 6,
   },
   {
-    id: 'qinglan', name: '晴岚', callsign: '山岚导航', age: 30, pronouns: '他', portraitUrl: qinglanPortrait, portraitPosition: '50% 15%',
-    color: PALETTE.hullVolt, personality: 'clean', pace: 1.02, mood: '专注', moodIcon: '●',
-    specialty: '精准领航员', strength: '航线近乎无误，后程持续追击', weakness: '被迫近身时略保守',
-    quote: '误差会累积，我不会。', handling: { acceleration: 1.01, steering: 1.04, driftCharge: 0.99, airControl: 1.04 }, rivalRank: 7,
+    id: 'kongming', name: '孔明', callsign: '东风领航官', age: 35, pronouns: '他', portraitUrl: kongmingPortrait, portraitPosition: '50% 15%',
+    color: PALETTE.hullVolt, personality: 'clean', pace: 1.02, mood: '冷酷', moodIcon: '●',
+    specialty: '长展弦比高空巡航型 · 卧龙木鸢', strength: '精准借势暖气流与风道，高空巡航阻力极低', weakness: '被迫近身肉搏略显保守',
+    quote: '万事俱备，只欠东风；风之所向，吾心所往。', handling: { acceleration: 1.01, steering: 1.04, driftCharge: 0.99, airControl: 1.04 },
+    pilotVisual: {
+      suitColor: 0x1C2D4A, secondaryColor: 0x2A4270,
+      capeColor: 0x243B66, capeTrimColor: 0xE8C468,
+      gogglesColor: 0xD0DCE8, gogglesLensColor: 0xB8E4F8,
+      skinColor: 0xFAEFE4, hairColor: 0x1C1C20, headgearColor: 0xE2ECF2,
+      capeType: 'scholar_mantle', headgearType: 'astrolabe_crown', gogglesType: 'silver_scholar',
+    },
+    rivalRank: 7,
   },
   {
-    id: 'fenglin', name: '风铃', callsign: '漂浮少年', age: 25, pronouns: '他', portraitUrl: fenglinPortrait, portraitPosition: '50% 15%',
+    id: 'wawa', name: '娃娃', callsign: '风铃小童', age: 16, pronouns: '她', portraitUrl: wawaPortrait, portraitPosition: '50% 15%',
     color: PALETTE.hullJinx, personality: 'erratic', pace: 0.965, mood: '兴奋', moodIcon: '✦',
-    specialty: '漂移赌徒', strength: '蓄能快，偶尔跑出神级航线', weakness: '节奏波动明显',
-    quote: '稳有什么意思，风才是老师！', handling: { acceleration: 0.98, steering: 1.02, driftCharge: 1.06, airControl: 0.97 }, rivalRank: 1,
+    specialty: '双翼敏捷起飞型 · 风之浮子', strength: '起飞蓄能极迅速，灵动漂移常跑出奇迹航线', weakness: '空中巡航颠簸容错略低',
+    quote: '风铃叮当响，风儿带我飞向最高的那片云朵！', handling: { acceleration: 0.98, steering: 1.02, driftCharge: 1.06, airControl: 0.97 },
+    pilotVisual: {
+      suitColor: 0x2D7A47, secondaryColor: 0x48A866,
+      capeColor: 0x369450, capeTrimColor: 0x6CD285,
+      gogglesColor: 0xEAA836, gogglesLensColor: 0x78E0F0,
+      skinColor: 0xFDEDE2, hairColor: 0x9C5A32, headgearColor: 0x2D7A47,
+      capeType: 'furin_cloak', headgearType: 'cat_ear_hood', gogglesType: 'brass_round',
+      hasFurinBell: true,
+    },
+    rivalRank: 1,
   },
 ] as const;
 
 export function driverProfile(id: string): DriverProfile {
   return DRIVER_PROFILES.find((profile) => profile.id === id) ?? DRIVER_PROFILES[0];
+}
+
+export function pilotVisualForProfile(id: string): PilotVisualConfig {
+  return driverProfile(id).pilotVisual;
 }
 
 export function loadSelectedDriver(): string {

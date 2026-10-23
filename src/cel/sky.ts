@@ -19,11 +19,12 @@ import { SUN_DIR } from './toonMaterial';
 
 const SKY_RADIUS = 4500;
 
-// Cloud distribution counts across 3 depth tiers
+// Cloud distribution counts across 4 depth tiers
 const HERO_COUNT = 6;   // Towering monumental cumulonimbus pillars (far & massive)
 const MID_COUNT = 12;   // Floating cumulonimbus massifs & clusters (medium depth)
 const NEAR_COUNT = 14;  // Dynamic light cumulus & wind-swept wisps (near/fast drift)
-const TOTAL_CLOUD_COUNT = HERO_COUNT + MID_COUNT + NEAR_COUNT; // 32
+const CIRRUS_COUNT = 8; // High-altitude cirrus veil streamers (high altitude)
+const TOTAL_CLOUD_COUNT = HERO_COUNT + MID_COUNT + NEAR_COUNT + CIRRUS_COUNT; // 40
 
 /** Deterministic pseudo-random hash → 0..1 (stable layout across runs/screenshots). */
 function hash(i: number, k: number): number {
@@ -73,8 +74,8 @@ void main() {
   // Horizon warm haze -> Clear mid-sky blue -> Zenith deep azure.
   // ---------------------------------------------------------------
   vec3 col = uHorizon;
-  col = mix(col, uMid, smoothstep(0.01, 0.14, h));
-  col = mix(col, uZenith, smoothstep(0.24, 0.45, h));
+  col = mix(col, uMid, smoothstep(0.01, 0.16, h));
+  col = mix(col, uZenith, smoothstep(0.22, 0.48, h));
 
   // ---------------------------------------------------------------
   // ATMOSPHERIC SUN GLOW & HORIZON HAZE:
@@ -82,8 +83,8 @@ void main() {
   // ---------------------------------------------------------------
   float sunCos = clamp(dot(dir, uSunDir), -1.0, 1.0);
   float sunScatter = max(0.0, sunCos);
-  float halo = pow(sunScatter, 6.0) * 0.42;
-  float horizSunHaze = max(0.0, sunCos) * (1.0 - smoothstep(0.0, 0.22, abs(h))) * 0.22;
+  float halo = pow(sunScatter, 5.5) * 0.45;
+  float horizSunHaze = max(0.0, sunCos) * (1.0 - smoothstep(0.0, 0.25, abs(h))) * 0.25;
   col = mix(col, uSunFlare, halo + horizSunHaze);
 
   // ---------------------------------------------------------------
@@ -95,17 +96,17 @@ void main() {
   float az = atan(dot(dir, t1), dot(dir, t0)); // azimuth around the sun vector
 
   // ---------------------------------------------------------------
-  // GRAPHIC ANIME SUN — Hard core disc + stepped corona rings +
+  // GRAPHIC ANIME SUN — Soft core disc + stepped corona rings +
   // alternating long/short 12-segment sunburst rays.
   // ---------------------------------------------------------------
-  // Hard sun core disc (~2.4 degrees).
-  float disc = 1.0 - step(0.042, ang);
+  // Sun core disc (~2.4 degrees) with micro watercolor edge softening.
+  float disc = 1.0 - smoothstep(0.038, 0.044, ang);
 
   // Inner warm corona ring hugging the disc.
-  float ring0 = step(0.042, ang) * (1.0 - step(0.056, ang));
+  float ring0 = smoothstep(0.040, 0.044, ang) * (1.0 - smoothstep(0.056, 0.060, ang));
 
   // Outer subtle halo ring.
-  float ring1 = step(0.064, ang) * (1.0 - step(0.072, ang)) * 0.7;
+  float ring1 = smoothstep(0.062, 0.066, ang) * (1.0 - smoothstep(0.074, 0.078, ang)) * 0.75;
 
   // 12 rectangular rays, separated by gaps, alternating long/short radial extents.
   // Rotation advances in hard stepped increments for a graphic manga/anime look.
@@ -114,7 +115,7 @@ void main() {
   float rayAz = 1.0 - step(seg * 0.22, abs(mod(az + rot, seg) - seg * 0.5));
   float longRay = step(0.5, mod(floor((az + rot) / seg), 2.0));
   float rayEnd = mix(0.12, 0.20, longRay);
-  float burstRays = rayAz * step(0.080, ang) * (1.0 - step(rayEnd, ang));
+  float burstRays = rayAz * smoothstep(0.076, 0.082, ang) * (1.0 - smoothstep(rayEnd - 0.006, rayEnd, ang));
 
   // ---------------------------------------------------------------
   // ATMOSPHERIC CREPUSCULAR GOD RAYS (丁达尔圣光柱):
@@ -124,9 +125,9 @@ void main() {
   float rayBeam2 = cos(az * 11.0 - uTime * 0.035 + 1.2) * 0.5 + 0.5;
   float rayBeam3 = sin(az * 17.0 + uTime * 0.07 - 0.8) * 0.5 + 0.5;
   float godRaysRaw = rayBeam1 * 0.50 + rayBeam2 * 0.30 + rayBeam3 * 0.20;
-  float godRays = smoothstep(0.42, 0.78, godRaysRaw);
-  float rayReach = smoothstep(1.25, 0.10, ang) * smoothstep(0.05, 0.25, ang);
-  float godRayIntensity = godRays * rayReach * 0.28 * (0.6 + 0.4 * max(0.0, h));
+  float godRays = smoothstep(0.40, 0.76, godRaysRaw);
+  float rayReach = smoothstep(1.30, 0.10, ang) * smoothstep(0.05, 0.25, ang);
+  float godRayIntensity = godRays * rayReach * 0.30 * (0.6 + 0.4 * max(0.0, h));
 
   col = mix(col, uSunFlare, max(max(ring0, ring1), burstRays));
   col = mix(col, uSunFlare, godRayIntensity);
@@ -141,182 +142,168 @@ void main() {
 /**
  * Generates hand-drawn Ghibli watercolor cloud textures on procedural HTML5 Canvas:
  * - Variant 0: Monumental Towering Cumulonimbus (入道云山·巨型积云柱).
- * - Variant 1: Sprawling Cumulonimbus Massif (连绵积雨云群·多峰云海).
- * - Variant 2: Wind-Swept Stratocumulus (风卷飞云·舒展流线).
- * - Variant 3: Low Horizon Summer Cumulus Bank (低空海天云层·平底积云).
+ * - Variant 1: Sprawling Cumulonimbus Massif & Sky Island Cloud Deck (连绵积雨云群·多峰云海).
+ * - Variant 2: Wind-Swept Stratocumulus Streamers (风卷飞云·舒展流线).
+ * - Variant 3: Low Horizon Summer Cumulus Shelf (低空海天云层·平底积云).
+ * - Variant 4: High Cirrus Veil & Crepuscular Streamers (高空卷云·水彩天幕).
  *
- * All variants feature 3-tier cel watercolor shading:
- * 1. Top/sunlit crest golden rim highlight (PALETTE.cloudRim).
- * 2. Luminous crisp anime cloud body (PALETTE.cloudBody).
- * 3. Stepped watercolor underbelly & crevice shading (PALETTE.cloudShade).
+ * All variants feature multi-pass Ghibli watercolor technique:
+ * 1. Warm golden sunlight crest glow on sunlit upper rims (PALETTE.cloudRim & warm amber halo).
+ * 2. Volumetric bright cloud body with overlapping billows (PALETTE.cloudBody).
+ * 3. Miyazaki signature soft lavender / violet-grey shaded underbelly & crevice cavities.
+ * 4. Ambient turquoise/azure sky and sea bounce light on the base.
  */
 function makeCloudTexture(variant: number): THREE.CanvasTexture {
   const w = 512;
-  const h = variant === 2 ? 320 : variant === 3 ? 256 : 384;
+  const h = variant === 2 ? 320 : variant === 3 ? 256 : variant === 4 ? 256 : 384;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
+  const rimGold = css(PALETTE.cloudRim);
+  const bodyWhite = css(PALETTE.cloudBody);
+
+  // Helper to paint a single Ghibli gouache cloud billow with sunlit crown and soft azure underside
+  const paintGouachePuff = (cx: number, cy: number, rx: number, ry: number): void => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(1, ry / rx);
+    // Soft outer rim glow
+    const rimGrad = ctx.createRadialGradient(-rx * 0.14, -rx * 0.18, rx * 0.1, 0, 0, rx * 1.04);
+    rimGrad.addColorStop(0, 'rgba(255, 252, 242, 0.98)');
+    rimGrad.addColorStop(0.62, 'rgba(255, 249, 236, 0.96)');
+    rimGrad.addColorStop(0.88, 'rgba(244, 240, 228, 0.85)');
+    rimGrad.addColorStop(1.0, 'rgba(244, 240, 228, 0.0)');
+    ctx.fillStyle = rimGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx * 1.04, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main volumetric puff with warm sunlit top and soft cerulean-lavender lower shade
+    const bodyGrad = ctx.createLinearGradient(-rx * 0.2, -rx * 0.85, rx * 0.2, rx * 0.92);
+    bodyGrad.addColorStop(0, '#fffdf6');
+    bodyGrad.addColorStop(0.48, '#fbf8ef');
+    bodyGrad.addColorStop(0.78, '#dce8f5');
+    bodyGrad.addColorStop(1.0, '#b8cde6');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx * 0.92, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  // Soft bottom grounding atmospheric blend
+  const applyCloudBaseAtmosphere = (baseStartY: number): void => {
+    ctx.globalCompositeOperation = 'source-atop';
+    const baseGrad = ctx.createLinearGradient(0, baseStartY - 36, 0, h);
+    baseGrad.addColorStop(0, 'rgba(182, 206, 232, 0.0)');
+    baseGrad.addColorStop(0.55, 'rgba(158, 190, 224, 0.42)');
+    baseGrad.addColorStop(1.0, 'rgba(142, 184, 220, 0.68)');
+    ctx.fillStyle = baseGrad;
+    ctx.fillRect(0, baseStartY - 36, w, h - (baseStartY - 36));
+    ctx.globalCompositeOperation = 'source-over';
+  };
+
   if (variant === 0) {
     // =========================================================================
     // Variant 0: Monumental Towering Cumulonimbus (入道云山·巨型积云柱)
     // =========================================================================
-    const drawLobes = (dx: number, dy: number, fill: string): void => {
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      // Flat grounding base
-      ctx.ellipse(256 + dx, 315 + dy, 195, 48, 0, 0, Math.PI * 2);
-
-      // Lower tier billows
-      ctx.arc(130 + dx, 265 + dy, 68, 0, Math.PI * 2);
-      ctx.arc(190 + dx, 215 + dy, 82, 0, Math.PI * 2);
-      ctx.arc(315 + dx, 220 + dy, 80, 0, Math.PI * 2);
-      ctx.arc(385 + dx, 270 + dy, 62, 0, Math.PI * 2);
-
-      // Mid/Upper towering column
-      ctx.arc(205 + dx, 145 + dy, 76, 0, Math.PI * 2);
-      ctx.arc(265 + dx, 100 + dy, 90, 0, Math.PI * 2);
-      ctx.arc(330 + dx, 138 + dy, 72, 0, Math.PI * 2);
-
-      // Summit cauliflower crests
-      ctx.arc(232 + dx, 62 + dy, 38, 0, Math.PI * 2);
-      ctx.arc(272 + dx, 52 + dy, 42, 0, Math.PI * 2);
-      ctx.arc(312 + dx, 68 + dy, 36, 0, Math.PI * 2);
-      ctx.fill();
-    };
-
-    // 1. Golden rim highlight at sunlit crest
-    drawLobes(0, 0, css(PALETTE.cloudRim));
-    // 2. Bright sunlit cloud body
-    drawLobes(2, 9, css(PALETTE.cloudBody));
-
-    // 3. Stepped watercolor under-shade & internal lobe crevices
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = css(PALETTE.cloudShade);
-    // Base shadow shelf
-    ctx.fillRect(0, 275, w, h - 275);
-    // Mid-tier overhang cavities
-    ctx.beginPath();
-    ctx.ellipse(220, 255, 88, 34, -0.12, 0, Math.PI * 2);
-    ctx.ellipse(335, 250, 82, 30, 0.10, 0, Math.PI * 2);
-    // Upper crevice shading
-    ctx.ellipse(240, 162, 54, 24, -0.18, 0, Math.PI * 2);
-    ctx.ellipse(312, 158, 48, 22, 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
+    // Lower pedestal billows
+    paintGouachePuff(256, 308, 195, 54);
+    paintGouachePuff(126, 268, 78, 66);
+    paintGouachePuff(386, 272, 74, 62);
+    // Mid-tier cauliflower billows
+    paintGouachePuff(186, 218, 92, 84);
+    paintGouachePuff(320, 220, 90, 82);
+    paintGouachePuff(254, 232, 102, 86);
+    // Upper towering column
+    paintGouachePuff(202, 146, 84, 78);
+    paintGouachePuff(328, 140, 80, 74);
+    paintGouachePuff(264, 104, 100, 92);
+    // Sunlit cauliflower summit crowns
+    paintGouachePuff(226, 64, 52, 48);
+    paintGouachePuff(308, 68, 50, 46);
+    paintGouachePuff(268, 52, 58, 54);
+    applyCloudBaseAtmosphere(258);
   } else if (variant === 1) {
     // =========================================================================
-    // Variant 1: Sprawling Cumulonimbus Massif (连绵积雨云群·多峰云海)
+    // Variant 1: Sprawling Cumulonimbus Massif & Sky Island Cloud Deck (连绵积雨云群·多峰云海)
     // =========================================================================
-    const drawLobes = (dx: number, dy: number, fill: string): void => {
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      // Broad base
-      ctx.ellipse(256 + dx, 318 + dy, 225, 46, 0, 0, Math.PI * 2);
-
-      // Left massif summit
-      ctx.arc(100 + dx, 262 + dy, 56, 0, Math.PI * 2);
-      ctx.arc(140 + dx, 212 + dy, 70, 0, Math.PI * 2);
-      ctx.arc(160 + dx, 146 + dy, 66, 0, Math.PI * 2);
-
-      // Central towering massif summit
-      ctx.arc(220 + dx, 172 + dy, 78, 0, Math.PI * 2);
-      ctx.arc(270 + dx, 112 + dy, 90, 0, Math.PI * 2);
-      ctx.arc(320 + dx, 162 + dy, 74, 0, Math.PI * 2);
-      ctx.arc(252 + dx, 76 + dy, 38, 0, Math.PI * 2);
-      ctx.arc(288 + dx, 72 + dy, 40, 0, Math.PI * 2);
-
-      // Right flank summit
-      ctx.arc(382 + dx, 196 + dy, 70, 0, Math.PI * 2);
-      ctx.arc(426 + dx, 248 + dy, 54, 0, Math.PI * 2);
-      ctx.fill();
-    };
-
-    // 1. Golden rim highlight
-    drawLobes(0, 0, css(PALETTE.cloudRim));
-    // 2. Cloud body
-    drawLobes(2, 9, css(PALETTE.cloudBody));
-
-    // 3. Under-shade and saddle dip shadows
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = css(PALETTE.cloudShade);
-    ctx.fillRect(0, 270, w, h - 270);
-    ctx.beginPath();
-    ctx.ellipse(186, 230, 64, 28, -0.15, 0, Math.PI * 2);
-    ctx.ellipse(352, 220, 62, 26, 0.12, 0, Math.PI * 2);
-    ctx.ellipse(270, 245, 95, 32, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
+    paintGouachePuff(256, 312, 224, 50);
+    // Left massif
+    paintGouachePuff(98, 258, 66, 58);
+    paintGouachePuff(142, 206, 80, 74);
+    paintGouachePuff(162, 146, 74, 68);
+    // Right flank
+    paintGouachePuff(426, 246, 64, 56);
+    paintGouachePuff(382, 194, 80, 72);
+    // Central massif
+    paintGouachePuff(220, 172, 88, 80);
+    paintGouachePuff(320, 162, 84, 76);
+    paintGouachePuff(270, 114, 98, 90);
+    paintGouachePuff(248, 76, 50, 46);
+    paintGouachePuff(292, 72, 52, 48);
+    applyCloudBaseAtmosphere(255);
   } else if (variant === 2) {
     // =========================================================================
-    // Variant 2: Wind-Swept Stratocumulus (风卷飞云·舒展流线)
+    // Variant 2: Wind-Swept Stratocumulus Streamers (风卷飞云·舒展流线)
     // =========================================================================
-    const drawLobes = (dx: number, dy: number, fill: string): void => {
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      // Extended slanted base
-      ctx.ellipse(256 + dx, 245 + dy, 215, 42, 0, 0, Math.PI * 2);
-
-      // Sweeping left wisps
-      ctx.arc(85 + dx, 238 + dy, 40, 0, Math.PI * 2);
-      ctx.arc(135 + dx, 212 + dy, 52, 0, Math.PI * 2);
-      ctx.arc(185 + dx, 188 + dy, 62, 0, Math.PI * 2);
-
-      // Main central arches
-      ctx.arc(248 + dx, 158 + dy, 72, 0, Math.PI * 2);
-      ctx.arc(318 + dx, 152 + dy, 70, 0, Math.PI * 2);
-
-      // Aerodynamic right tail
-      ctx.arc(388 + dx, 184 + dy, 60, 0, Math.PI * 2);
-      ctx.arc(442 + dx, 214 + dy, 48, 0, Math.PI * 2);
-      ctx.fill();
-    };
-
-    // 1. Golden rim
-    drawLobes(0, 0, css(PALETTE.cloudRim));
-    // 2. Cloud body
-    drawLobes(1, 8, css(PALETTE.cloudBody));
-
-    // 3. Under-shade
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = css(PALETTE.cloudShade);
-    ctx.fillRect(0, 222, w, h - 222);
-    ctx.beginPath();
-    ctx.ellipse(272, 212, 115, 30, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
+    paintGouachePuff(256, 242, 220, 44);
+    paintGouachePuff(86, 232, 52, 44);
+    paintGouachePuff(136, 206, 64, 56);
+    paintGouachePuff(188, 182, 74, 64);
+    paintGouachePuff(392, 182, 70, 60);
+    paintGouachePuff(444, 210, 56, 48);
+    paintGouachePuff(248, 154, 84, 74);
+    paintGouachePuff(322, 150, 80, 70);
+    applyCloudBaseAtmosphere(210);
+  } else if (variant === 3) {
+    // =========================================================================
+    // Variant 3: Low Horizon Summer Cumulus Shelf (低空海天云层·平底积云)
+    // =========================================================================
+    paintGouachePuff(256, 202, 234, 40);
+    paintGouachePuff(108, 168, 64, 54);
+    paintGouachePuff(176, 144, 74, 64);
+    paintGouachePuff(332, 140, 76, 66);
+    paintGouachePuff(402, 164, 66, 56);
+    paintGouachePuff(254, 128, 82, 72);
+    applyCloudBaseAtmosphere(168);
   } else {
     // =========================================================================
-    // Variant 3: Low Horizon Summer Cumulus Bank (低空海天云层·平底积云)
+    // Variant 4: High Cirrus Veil & Crepuscular Streamers (高空卷云·水彩天幕)
     // =========================================================================
-    const drawLobes = (dx: number, dy: number, fill: string): void => {
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      // Flat ocean horizon shelf
-      ctx.ellipse(256 + dx, 204 + dy, 235, 38, 0, 0, Math.PI * 2);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = bodyWhite;
 
-      // Gentle rounded summer top billows
-      ctx.arc(110 + dx, 172 + dy, 54, 0, Math.PI * 2);
-      ctx.arc(176 + dx, 148 + dy, 64, 0, Math.PI * 2);
-      ctx.arc(252 + dx, 132 + dy, 70, 0, Math.PI * 2);
-      ctx.arc(328 + dx, 142 + dy, 66, 0, Math.PI * 2);
-      ctx.arc(398 + dx, 168 + dy, 56, 0, Math.PI * 2);
-      ctx.fill();
+    // Dynamic feathered brush streaks
+    const drawStreak = (x0: number, y0: number, x1: number, y1: number, width: number, alpha: number): void => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.bezierCurveTo(x0 + 120, y0 - 15, x1 - 120, y1 + 15, x1, y1);
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = bodyWhite;
+      ctx.stroke();
+      ctx.restore();
     };
 
-    // 1. Golden rim
-    drawLobes(0, 0, css(PALETTE.cloudRim));
-    // 2. Cloud body
-    drawLobes(1, 7, css(PALETTE.cloudBody));
+    drawStreak(30, 180, 480, 80, 24, 0.45);
+    drawStreak(80, 210, 460, 120, 18, 0.55);
+    drawStreak(150, 150, 490, 60, 14, 0.40);
+    drawStreak(20, 130, 380, 50, 12, 0.35);
 
-    // 3. Under-shade
+    // Delicate golden sunlight edge and lavender trailing tint
     ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = css(PALETTE.cloudShade);
-    ctx.fillRect(0, 178, w, h - 178);
-    ctx.beginPath();
-    ctx.ellipse(256, 175, 130, 26, 0, 0, Math.PI * 2);
-    ctx.fill();
+    const cirrusGrad = ctx.createLinearGradient(0, 0, w, h);
+    cirrusGrad.addColorStop(0, rimGold);
+    cirrusGrad.addColorStop(0.35, bodyWhite);
+    cirrusGrad.addColorStop(0.85, 'rgba(255, 255, 255, 0.85)');
+    cirrusGrad.addColorStop(1, 'rgba(146, 143, 168, 0.35)');
+    ctx.fillStyle = cirrusGrad;
+    ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -333,7 +320,7 @@ export class Sky {
   private readonly skyUniforms: { [uniform: string]: THREE.IUniform };
   private readonly sprites: THREE.Sprite[] = [];
 
-  // Per-cloud ring parameters (0..5 Hero, 6..17 Mid, 18..31 Near).
+  // Per-cloud ring parameters (0..5 Hero, 6..17 Mid, 18..31 Near, 32..39 Cirrus).
   private readonly cRadius = new Float32Array(TOTAL_CLOUD_COUNT);
   private readonly cAngle = new Float32Array(TOTAL_CLOUD_COUNT);
   private readonly cOmega = new Float32Array(TOTAL_CLOUD_COUNT);
@@ -373,11 +360,12 @@ export class Sky {
     dome.renderOrder = -1000; // Paint first in opaque pass
     group.add(dome);
 
-    // --- 2. 4 specialized procedural Ghibli cloud textures ---
+    // --- 2. 5 specialized procedural Ghibli cloud textures ---
     const texCumulonimbus = makeCloudTexture(0); // Monumental towering thunderhead
     const texMassif = makeCloudTexture(1);        // Sprawling multi-peak massif
     const texStratocumulus = makeCloudTexture(2); // Wind-swept aerodynamic wisps
     const texHorizonBank = makeCloudTexture(3);   // Low summer horizon cumulus shelf
+    const texCirrus = makeCloudTexture(4);        // High-altitude cirrus veil streamers
 
     // Shared materials with atmospheric tinting
     const heroMatA = new THREE.SpriteMaterial({
@@ -434,7 +422,16 @@ export class Sky {
       fog: false,
     });
 
-    // --- 3. Construct 3 Depth Tiers (Hero, Mid, Near) ---
+    const cirrusMat = new THREE.SpriteMaterial({
+      map: texCirrus,
+      color: flat(PALETTE.skyHorizon),
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      fog: false,
+    });
+
+    // --- 3. Construct 4 Depth Tiers (Hero, Mid, Near, Cirrus) ---
     for (let i = 0; i < TOTAL_CLOUD_COUNT; i++) {
       let mat: THREE.SpriteMaterial;
       let sx: number;
@@ -450,8 +447,8 @@ export class Sky {
 
         const baseAngle = (i / HERO_COUNT) * Math.PI * 2;
         this.cAngle[i] = baseAngle + hash(i, 1) * 0.45;
-        this.cRadius[i] = 3600 + hash(i, 2) * 650;
-        this.cBaseAlt[i] = 420 + hash(i, 3) * 320;
+        this.cRadius[i] = 3700 + hash(i, 2) * 650;
+        this.cBaseAlt[i] = 450 + hash(i, 3) * 350;
 
         // Slow majestic drift
         const dir = hash(i, 4) > 0.3 ? 1 : -1;
@@ -462,7 +459,7 @@ export class Sky {
         this.cBobPhase[i] = hash(i, 7) * Math.PI * 2;
         this.cBobAmp[i] = 18 + hash(i, 8) * 12;
 
-        sx = 1600 + hash(i, 9) * 600;
+        sx = 1750 + hash(i, 9) * 600;
         sy = sx * 0.75;
       } else if (i < HERO_COUNT + MID_COUNT) {
         // -------------------------------------------------------------
@@ -475,8 +472,8 @@ export class Sky {
 
         const baseAngle = (idx / MID_COUNT) * Math.PI * 2;
         this.cAngle[i] = baseAngle + hash(i, 1) * 0.50;
-        this.cRadius[i] = 2200 + hash(i, 2) * 750;
-        this.cBaseAlt[i] = 240 + hash(i, 3) * 260;
+        this.cRadius[i] = 2300 + hash(i, 2) * 750;
+        this.cBaseAlt[i] = 260 + hash(i, 3) * 260;
 
         // Moderate drift
         const dir = hash(i, 4) > 0.22 ? 1 : -1;
@@ -487,9 +484,9 @@ export class Sky {
         this.cBobPhase[i] = hash(i, 7) * Math.PI * 2;
         this.cBobAmp[i] = 22 + hash(i, 8) * 16;
 
-        sx = 800 + hash(i, 9) * 380;
+        sx = 880 + hash(i, 9) * 380;
         sy = sx * (variant === 2 ? 0.50 : 0.75);
-      } else {
+      } else if (i < HERO_COUNT + MID_COUNT + NEAR_COUNT) {
         // -------------------------------------------------------------
         // TIER 2: NEAR DYNAMIC LIGHT CUMULUS & WIND WISPS (14 clouds)
         // Near distance, crisp detail, responsive drift parallax.
@@ -500,8 +497,8 @@ export class Sky {
 
         const baseAngle = (idx / NEAR_COUNT) * Math.PI * 2;
         this.cAngle[i] = baseAngle + hash(i, 1) * 0.55;
-        this.cRadius[i] = 1200 + hash(i, 2) * 550;
-        this.cBaseAlt[i] = 130 + hash(i, 3) * 180;
+        this.cRadius[i] = 1250 + hash(i, 2) * 550;
+        this.cBaseAlt[i] = 140 + hash(i, 3) * 180;
 
         // Active drift
         const dir = hash(i, 4) > 0.18 ? 1 : -1;
@@ -512,8 +509,31 @@ export class Sky {
         this.cBobPhase[i] = hash(i, 7) * Math.PI * 2;
         this.cBobAmp[i] = 16 + hash(i, 8) * 14;
 
-        sx = 380 + hash(i, 9) * 180;
+        sx = 420 + hash(i, 9) * 180;
         sy = sx * (variant === 1 ? 0.625 : variant === 2 ? 0.50 : 0.75);
+      } else {
+        // -------------------------------------------------------------
+        // TIER 3: HIGH CIRRUS VEIL STREAMERS (8 clouds)
+        // High altitude, sweeping veil across upper sky dome.
+        // -------------------------------------------------------------
+        const idx = i - (HERO_COUNT + MID_COUNT + NEAR_COUNT);
+        mat = cirrusMat;
+
+        const baseAngle = (idx / CIRRUS_COUNT) * Math.PI * 2;
+        this.cAngle[i] = baseAngle + hash(i, 1) * 0.40;
+        this.cRadius[i] = 3100 + hash(i, 2) * 600;
+        this.cBaseAlt[i] = 720 + hash(i, 3) * 220;
+
+        // Fast high-altitude wind drift
+        this.cOmega[i] = 0.0012 + hash(i, 5) * 0.0008;
+
+        // Gentle breathing
+        this.cBobFreq[i] = 0.025 + hash(i, 6) * 0.015;
+        this.cBobPhase[i] = hash(i, 7) * Math.PI * 2;
+        this.cBobAmp[i] = 12 + hash(i, 8) * 8;
+
+        sx = 1300 + hash(i, 9) * 450;
+        sy = sx * 0.35;
       }
 
       const sprite = new THREE.Sprite(mat);

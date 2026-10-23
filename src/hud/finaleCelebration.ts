@@ -61,6 +61,36 @@ interface SunRay {
   readonly alphaFactor: number;
 }
 
+interface SoaringBird {
+  readonly xFrac: number;
+  readonly yFrac: number;
+  readonly speedX: number;
+  readonly speedY: number;
+  readonly size: number;
+  readonly flapFreq: number;
+  readonly flapPhase: number;
+  readonly bankAngle: number;
+  readonly birdType: number; // 0: White Seagull, 1: Swift Swallow, 2: Azure Tern
+  readonly delay: number;
+}
+
+const BIRD_COUNT = 16;
+const BIRDS: readonly SoaringBird[] = Array.from({ length: BIRD_COUNT }, (_, index) => {
+  const seed = index * 1.7320508;
+  return {
+    xFrac: -0.15 - ((index * 0.09) % 0.55),
+    yFrac: 0.10 + ((index * 0.052) % 0.42),
+    speedX: 0.12 + (index % 5) * 0.022,
+    speedY: (index % 2 === 0 ? -1 : 1) * (0.015 + (index % 3) * 0.008),
+    size: 0.015 + (index % 4) * 0.0035,
+    flapFreq: 3.4 + (index % 4) * 0.7,
+    flapPhase: (seed * 3.1415) % (Math.PI * 2),
+    bankAngle: (index % 2 === 0 ? 1 : -1) * (0.08 + (index % 3) * 0.04),
+    birdType: index % 3,
+    delay: (index % 7) * 0.035,
+  };
+});
+
 const PETAL_COUNT = 76;
 const PETALS: readonly Petal[] = Array.from({ length: PETAL_COUNT }, (_, index) => {
   const seed = index * 1.6180339887;
@@ -196,6 +226,11 @@ export class FinaleCelebrationCanvas {
       this.drawSunRays(ctx, cx, cy, scale, crown, elapsed);
     }
 
+    // 2.8 Soaring Flock of Birds in Sky
+    if (elapsed > 0.06) {
+      this.drawSoaringFlockOfBirds(ctx, width, height, scale, elapsed, progress);
+    }
+
     // 3. Central Golden Weathervane & Solar Crown Crest
     if (crown > 0.02) {
       this.drawGoldenWeathervane(ctx, cx, cy, scale, crown, elapsed, impact);
@@ -303,6 +338,92 @@ export class FinaleCelebrationCanvas {
       ctx.lineTo(p2x, p2y);
       ctx.closePath();
       ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Layer 2.8: Soaring Flock of Birds (晴空群鸟伴飞)
+  // ---------------------------------------------------------------------------
+  private drawSoaringFlockOfBirds(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    scale: number,
+    elapsed: number,
+    progress: number,
+  ): void {
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    const time = this.reducedMotion ? 0.6 : elapsed;
+
+    for (const bird of BIRDS) {
+      if (elapsed < bird.delay) continue;
+      const localT = time - bird.delay;
+
+      // Planar flight trajectory across the sky with gentle altitude sway
+      const rawX = bird.xFrac * width + bird.speedX * scale * localT;
+      const rawY = bird.yFrac * height + bird.speedY * scale * localT + Math.sin(localT * 1.5 + bird.flapPhase) * scale * 0.02;
+
+      // Wrap smoothly around screen
+      const posX = ((rawX % (width + 120)) + width + 120) % (width + 120) - 60;
+      const posY = ((rawY % (height + 100)) + height + 100) % (height + 100) - 50;
+
+      // Wing flapping animation
+      const flap = Math.sin(localT * bird.flapFreq + bird.flapPhase);
+      const wingSpan = scale * bird.size * (0.9 + progress * 0.25);
+      const wingTipY = -wingSpan * 0.45 * flap;
+
+      const alpha = Math.max(0, Math.min(1, Math.min(1, posX / 60) * Math.min(1, (width - posX) / 60))) * 0.90;
+      if (alpha <= 0.01) continue;
+
+      ctx.save();
+      ctx.translate(posX, posY);
+      ctx.rotate(bird.bankAngle + flap * 0.08);
+
+      // Color scheme according to birdType
+      if (bird.birdType === 0) {
+        // Pure White Ghibli Seagull with charcoal tips
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.strokeStyle = `rgba(44, 34, 28, ${alpha * 0.65})`;
+      } else if (bird.birdType === 1) {
+        // Swift Swallow with dark indigo back & warm throat
+        ctx.fillStyle = `rgba(225, 238, 248, ${alpha * 0.95})`;
+        ctx.strokeStyle = `rgba(32, 45, 62, ${alpha * 0.75})`;
+      } else {
+        // Azure Sea Tern
+        ctx.fillStyle = `rgba(215, 245, 255, ${alpha * 0.92})`;
+        ctx.strokeStyle = `rgba(40, 72, 98, ${alpha * 0.70})`;
+      }
+
+      ctx.lineWidth = Math.max(0.8, scale * 0.0014);
+
+      // Left wing, body, right wing curved silhouette
+      ctx.beginPath();
+      // Body head & beak
+      ctx.moveTo(wingSpan * 0.35, 0);
+      // Right wing arch
+      ctx.quadraticCurveTo(wingSpan * 0.15, wingTipY * 0.5 - wingSpan * 0.12, -wingSpan * 0.1, wingTipY);
+      ctx.quadraticCurveTo(wingSpan * 0.05, wingTipY * 0.4, 0, wingSpan * 0.12);
+      // Tail feathers
+      ctx.lineTo(-wingSpan * 0.45, wingSpan * 0.04);
+      ctx.lineTo(0, -wingSpan * 0.12);
+      // Left wing arch
+      ctx.quadraticCurveTo(wingSpan * 0.05, -wingTipY * 0.4, -wingSpan * 0.1, -wingTipY);
+      ctx.quadraticCurveTo(wingSpan * 0.15, -wingTipY * 0.5 + wingSpan * 0.12, wingSpan * 0.35, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Wingtip ink accents
+      ctx.fillStyle = `rgba(44, 34, 28, ${alpha * 0.55})`;
+      ctx.beginPath();
+      ctx.arc(-wingSpan * 0.1, wingTipY, Math.max(1.0, scale * 0.002), 0, Math.PI * 2);
+      ctx.arc(-wingSpan * 0.1, -wingTipY, Math.max(1.0, scale * 0.002), 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
     }
     ctx.restore();
   }

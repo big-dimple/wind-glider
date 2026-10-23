@@ -129,20 +129,44 @@
 ### Milestone 7: 视听资产与音乐全面重构 (Audio & 2D Art Assets Overhaul)
 - [x] **Task 7.1**：在 `src/assets/` 与 `src/audio/audio.ts` 中彻底替换原版重金属摇滚 BGM 为治愈和风/原声吉他/风笛自然风配乐。
 - [x] **Task 7.2**：在 `src/assets/drivers/*.webp` 与 `src/hud/driverSelect.ts` 中重新绘制 6 位吉卜力风格飞行员头像与立绘（凌风/云雀/日羽/波澜/晴岚/风铃）。
-- [ ] **Task 7.3**：在 `src/assets/expansions/` 与 `src/assets/achievements/` 中重绘天空岛、风车原野、珊瑚海等吉卜力手绘水彩航线背景与勋章。
+- [x] **Task 7.3**：在 `src/assets/expansions/` 与 `src/assets/achievements/` 中重绘天空岛、风车原野、珊瑚海等吉卜力手绘水彩航线背景与探索勋章。
 
-### Milestone 8: 滑翔动力学、镜头冲击力与操作风感重塑 (Glider Physics & Camera Feel)
-- [ ] **Task 8.1**：在 `src/game/boat.ts` 中重塑滑翔腾空与气动反馈动力学，引入升力阻力方程、热气流颠簸与大倾角切水手感。
-- [ ] **Task 8.2**：在 `src/game/chaseCamera.ts` 与 `src/cel/postPipeline.ts` 中重构滑翔动态镜头、起飞广角俯冲拉伸与边缘风流速度线。
-- [ ] **Task 8.3**：在 `src/game/boat.ts` 中精雕木质转子阻尼旋转、帆布机翼风压微变形波纹与黄铜尾舵物理联锁。
+### Milestone 8: 晴空滑翔动力学与 3D 空气动力引擎 (Glider Aerodynamics & Flight Mechanics)
+- [x] **Task 8.1**：在 `src/game/boat.ts` 中重塑空气动力学核心——引入真实迎角（AoA）升力阻力方程、俯冲换速与仰冲爬升模型。
+- [x] **Task 8.2**：在 `src/game/boat.ts` 与 `src/game/jetTrail.ts` 中实现翼地效应 (Ground Effect) 与贴海/贴岩掠行共鸣机制。
+- [x] **Task 8.3**：在 `src/game/course.ts` 与 `src/game/boat.ts` 中引入上升暖气流柱 (Thermal Updrafts) 与高空风道弹射机制。
 
-### Milestone 9: 水彩着色器与环境氛围升华 (Watercolor Shading & World Environment)
-- [ ] **Task 9.1**：在 `src/water/ocean.ts`、`src/cel/sky.ts`、`src/cel/toonMaterial.ts` 中升华海面水彩焦散光斑与柔和晨昏天光，消除塑料硬边缘。
-- [ ] **Task 9.2**：在 `src/game/course.ts` 与 `src/game/jetTrail.ts` 中重构古代石门藤蔓手墨细节、木质风铃浮球与穿门卷吸花瓣。
+### Milestone 9: 3D 奇观航道、引导光带与自然环境升华 (3D Wonder Course & Visuals)
+- [x] **Task 9.1**：在 `src/game/course.ts` 中构建三维立体奇观航道——高崖弹射起飞、珊瑚礁穿插、盘旋天梯与遗迹空中悬廊。
+- [x] **Task 9.2**：在 `src/game/course.ts` 与 `src/cel/edgePass.ts` 中实现 3D 动态气流引导带与远景天光地标锚点系统，彻底解决赛道显示与迷路痛点。
+- [x] **Task 9.3**：在 `src/water/ocean.ts`、`src/cel/sky.ts`、`src/cel/toonMaterial.ts` 中升华软调水彩天光、蓬松体积积雨云与通透珊瑚海焦散。
+- [x] **Task 9.4**：在 `src/game/chaseCamera.ts` 与 `src/cel/postPipeline.ts` 中重构飞行动态镜头与沉浸感风感反馈 (FOV 呼吸缩放、俯冲拉远广角张开、仰冲拉近收拢、柔和机体侧倾过载、手绘水彩水墨风流线速度线)。
 
-### Milestone 10: 全局端到端契约更新、发布与交付 (Release Verification & Production Delivery)
-- [ ] **Task 10.1**：更新 `harness/*.mjs` 契约断言适配全新飞行手感与资产，确保 `npm run verify:release` 0 报错通过。
-- [ ] **Task 10.2**：构建生产包发布至 `https://hp666.cc`，完成真机全流程验收与 Git 仓库提交准备。
+### Milestone 10: 羊皮纸飞行仪表盘、风语交互与音效升华 (Flight HUD & Audio Feel)
+- [x] **Task 10.1**：在 `src/hud/hud.ts` 与 `src/hud/hud.css` 中重构航空高度仪、空速节数计与风之共鸣槽极简手绘 HUD。
+- [x] **Task 10.2**：在 `src/audio/audio.ts` 中合成滑翔动态气流呼啸、木翼震颤、穿环风铃与海鸥环境音效。
+
+### Milestone 11: 全量契约测试适配、生产构建与发布交付 (Verification & Staging)
+- [x] **Task 11.1**：更新 `harness/*.mjs` 端到端自动化契约测试适配新 3D 飞行系统，确保 `npm run verify:release` 全绿。
+- [x] **Task 11.2**：构建生产包发布至 `https://wind.hp666.cc`，完成真机全流程验收与 Git 仓库提交准备。
+
+### Milestone 12: 触控操作与全平台体验升华 (Mobile Floating Controls & Cross-Platform Refinement)
+- [x] **Task 12.1**：在 `src/core/mobileControls.ts`、`src/core/mobileControls.css` 与 `src/core/input.ts` 中实现左侧动态浮动黄铜罗盘摇杆、右侧双动作气泡与按键长按恢复。
+- [x] **Task 12.2**：在 `src/game/boat.ts` 与 `src/contracts.ts` 中实现空中刹车落地切入切水漂移与智能防砸地面/水面气垫保护。
+- [x] **Task 12.3**：在 `src/game/course.ts`、`src/hud/hud.ts` 与 `src/core/haptics.ts` 中实现世界坐标手绘木质转弯立牌/浮标、HUD 航向与俯冲提示增强，以及触控震动反馈调优。
+
+### Milestone 13: 白垩海湾、红瓦风车海滨村落与世界生态重构 (Chalk Haven & Living Ecosystem)
+- [x] **Task 13.1**：在 `src/game/course.ts` 与 `src/core/palette.ts` 中彻底废除暗黑海中孤山，构建白垩海岬与翡翠草坡台地、地中海红瓦白墙木屋群、4叶旋转大风车、木质滑翔起飞跑道，以及惊飞海鸥群、跃水海豚与飘散蒲公英生态系统。
+- [x] **Task 13.2**：在 `src/game/course.ts` 与 `src/cel/sky.ts` 中构建高空拉普达浮岛回廊（象牙白石倒锥浮空岛群、古罗马双层引水渠悬廊、古代太阳神殿与风向标日晷、飘扬五色祈风彩旗、+14m/s金色暖气流柱与高空穿云水粉层叠积雨云海）。
+
+### Milestone 14: 终极水彩飞行员群像与吉卜力管弦巅峰原声 (Ultimate Roster & Ghibli Orchestral Peak)
+- [x] **Task 14.1**：升级 6 位终极手绘飞行员档案（苏轼/清照/萧峰/舟伯通/孔明/娃娃）与 640x960 2:3 水彩立绘，生成 3 首吉卜力管弦巅峰交响乐（晴空碧海/天空之城/红猪），并在 `src/audio/audio.ts` 中实现动态随机洗牌循环（Shuffle Loop）与无缝交叉淡入淡出（Crossfade）。
+- [x] **Task 14.2**：在 `src/game/boat.ts`、`src/game/racers.ts` 与 `src/game/rider.ts` 中构建 3D 飞行员入舱角色系统（6 位飞行员专属 3D 外观与护目镜/发型/头饰）、灵动身体姿态动力学（水平压弯侧倾、俯冲前倾低风阻流线姿态、仰冲拉杆抬头姿态）与 5 节多质点弹簧动态随风长围巾/披风物理。
+- [x] **Task 14.3**：在 `src/game/boat.ts` 中构建 6 款飞行员专属机体拓扑与展开机械翼（晴空信天翁/风谷蜻蜓/赤炎狂龙/顽童重锤/卧龙天机/彩虹雨燕），在 `src/game/course.ts` 中打造 70m 海天巨拱黄金太阳风向标终点凯旋大门与 36 面祈风流苏彩旗阵，在 `src/audio/audio.ts` 与 `src/hud/finaleCelebration.ts` 中升级久石让胜利交响大管弦原声与群鸟翱翔礼花盛典。
+
+### Milestone 15: 纯正吉卜力水彩原画着色器与手绘视界升华 (Pure Ghibli Watercolor Shaders & Hand-Drawn Realm)
+- [x] **Task 15.1**：在 `src/cel/toonMaterial.ts`、`src/cel/outline.ts` 与 `src/core/palette.ts` 中彻底消除赛璐珞硬阶梯，引入水彩湿画法柔和晕染（Feathering）、天顶天青与海面翡翠双半球反弹漫射、暖阳透光微晕与水彩留白高光、明暗交界处手绘铅笔排线阴影（Cross-Hatch Strokes），以及 Inverted-Hull 深暖褐色（`#3D2B1F`/`#4A3525`）手写提按笔触与渗墨质感。
+- [x] **Task 15.2**：在 `src/cel/postPipeline.ts`、`src/audio/audio.ts` 与 `src/game/boat.ts` 中实现吉卜力毛笔手绘水墨飞白动态气流速度流线（带飞白随风微抖质感与中央50%区域通透留白）、动态镜头FOV呼吸与机体微震颤，在 Web Audio 中实现老柚木机体受力嘎吱声（Wood Creak Shudder）、帆布气流剧烈翻卷声（Canvas Flutter）、古代风环与风之日晷清脆风铃和弦泛音与水面极速切水漂移浪花声学。
 
 ---
 
@@ -157,7 +181,9 @@
 
 ### 📤 离开时（Check-out）
 1. 运行 `npm run build` 确保 TypeScript 编译 0 报错。
-2. 更新 `docs/handoff.md`：
+2. 若由于云端环境限制跳过了端到端测试，**仅在 [`docs/todo-test.md`](docs/todo-test.md) 追加 1 行精炼要点**，严禁大段贴表。
+3. 强制清理所有测试/构建挂起的后台进程（如占用 5199/5216/5221 端口的 Vite/Playwright），清理临时调试文件，保证内存与端口零残留。
+4. 更新 `docs/handoff.md` 与本文件末尾：
    - 将已完成任务标记为 `DONE`。
    - 记录修改的具体文件路径与关键技术决策。
    - 将 `[Current Active Task]` 指针移动到下一个原子任务。
@@ -168,7 +194,8 @@
 ## 📍 Level 5: 当前实时交接状态 (Active Handoff State)
 
 - **当前项目目录**：`/var/www/wind-glider`
-- **线上发布地址**：[https://hp666.cc](https://hp666.cc)
-- **当前所处阶段**：`Milestone 7: 视听资产与音乐全面重构 (Audio & 2D Art Assets Overhaul)`
-- **👉 下一个待执行任务**：`Task 7.3 - 重绘扩展航线背景与探索勋章插画 (src/assets/expansions/ & src/assets/achievements/)`
-- **当前构建状态**：✅ `npm run build` 编译 0 报错，Task 7.2 新立绘已打包进 dist/。
+- **线上发布地址**：[https://wind.hp666.cc](https://wind.hp666.cc)
+- **当前所处阶段**：`Milestone 15: 纯正吉卜力水彩原画着色器与手绘视界升华 (Pure Ghibli Watercolor Shaders & Hand-Drawn Realm)`
+- **👉 当前状态**：🎉 **Task 15.2 交付完毕！**（毛笔手绘水墨飞白动态气流速度流线、中央50%通透留白、动态FOV呼吸与机体微震颤、老柚木机体受力嘎吱声、帆布翻卷声、古代风环风铃和弦泛音与切水漂移白噪浪花）
+- **当前构建状态**：✅ `npm run build` 0 错误 0 警告，契约测试（`verify:flight` / `verify:collision` / `verify:mobile` / `verify:audio` / `verify:systems` / `verify:performance`）100% 全绿通过，端口与内存零残留。
+- **下一原子任务指针**：`Milestone 15: Task 15.3` (或 Milestone 15 最终发布验收)

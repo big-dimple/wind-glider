@@ -16,10 +16,14 @@ export class Input {
 
   constructor(target: Window = window) {
     target.addEventListener('keydown', (e) => {
-      if (e.repeat) return;
+      const wasHeld = this.keys.has(e.code);
       this.keys.add(e.code);
-      this.pressed.add(e.code);
-      if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+      // A fullscreen/focus transition or cutscene can clear our held set while the
+      // physical key remains down. Browsers then resume with repeat events,
+      // so repeats must restore held controls without recreating one-shot
+      // edges such as Space.
+      if (!e.repeat) this.pressed.add(e.code);
+      if (!wasHeld && ['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
         this.activitySerialValue++;
       }
       if (['ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight'].includes(e.code)) e.preventDefault();
@@ -45,7 +49,8 @@ export class Input {
     const action = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
 
     const steerTarget = left ? -1 : right ? 1 : 0;
-    this.steerVal = approach(this.steerVal, steerTarget, 7 * dt);
+    const rate = steerTarget === 0 ? 14 : (this.steerVal * steerTarget < 0 ? 16 : 9.5);
+    this.steerVal = approach(this.steerVal, steerTarget, rate * dt);
 
     return {
       throttle: 1,

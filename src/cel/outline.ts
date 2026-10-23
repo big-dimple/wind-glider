@@ -34,24 +34,46 @@ uniform float uWidthFactor; // world-units-per-meter scale (~0.0015)
 uniform float uMinPush;     // world-space floor: the line never thins to nothing
 uniform float uMaxPush;     // world-space ceiling: distant objects don't blow up
 
+varying vec3 vWorldPos;
+varying vec3 vWorldNormal;
+varying float vStrokeMod;
+
 void main() {
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   // mat3(modelMatrix) assumes uniform scale (true for all meshes here).
   vec3 worldNormal = normalize(mat3(modelMatrix) * aOutlineNormal);
+
+  // Calligraphic thick/thin variation (提按笔触变化)
+  // Subtle spatial and curvature modulation creates hand-drawn pressure variation
+  float brushMod = 1.0 + 0.18 * sin(position.x * 7.2 + position.y * 9.8 + position.z * 6.5)
+                       + 0.08 * cos(position.y * 16.4 + position.z * 11.5);
+  brushMod *= (0.92 + 0.16 * abs(aOutlineNormal.y));
+  vStrokeMod = brushMod;
+
   // Offset proportional to camera distance => constant screen-space width,
   // clamped between minPush (close-ups) and maxPush (far vista).
   float dist = distance(worldPos.xyz, cameraPosition);
-  float push = clamp(uWidth * uWidthFactor * dist, uMinPush, uMaxPush);
+  float push = clamp(uWidth * uWidthFactor * dist * brushMod, uMinPush, uMaxPush);
   worldPos.xyz += worldNormal * push;
+  vWorldPos = worldPos.xyz;
+  vWorldNormal = worldNormal;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
 }
 `;
 
 const fragmentShader = /* glsl */ `
-uniform vec3 uColor;
+uniform vec3 uColor;     // Deep warm sepia core (#3D2B1F)
+uniform vec3 uColorWarm; // Lighter warm sepia ink wash (#4A3525)
+
+varying vec3 vWorldPos;
+varying vec3 vWorldNormal;
+varying float vStrokeMod;
 
 void main() {
-  gl_FragColor = vec4(uColor, 1.0);
+  // Calligraphic dip-pen / brush ink bleeding (渗墨微变化)
+  float bleed = sin(vWorldPos.x * 12.0 + vWorldPos.y * 14.0 + vWorldPos.z * 10.0) * 0.5 + 0.5;
+  vec3 ink = mix(uColor, uColorWarm, bleed * 0.22 + (1.0 - clamp(vStrokeMod * 0.75, 0.0, 1.0)) * 0.28);
+  gl_FragColor = vec4(ink, 1.0);
 }
 `;
 
@@ -60,7 +82,7 @@ const materialCache = new Map<string, THREE.ShaderMaterial>();
 
 function getOutlineMaterial(
   width: number,
-  color: number,
+  color: number = PALETTE.inkSepia,
   minPush: number = 0.003,
   maxPush: number = 0.06,
   widthFactor: number = 0.0015,
@@ -72,6 +94,7 @@ function getOutlineMaterial(
       name: 'CelOutline',
       uniforms: {
         uColor: { value: new THREE.Color().setHex(color, THREE.NoColorSpace) },
+        uColorWarm: { value: new THREE.Color().setHex(PALETTE.inkSepiaLight, THREE.NoColorSpace) },
         uWidth: { value: width },
         uWidthFactor: { value: widthFactor },
         uMinPush: { value: minPush },
@@ -202,6 +225,7 @@ export function addOutline(target: THREE.Object3D, opts: OutlineOptions = {}): T
   });
 
   for (const mesh of meshes) {
+    if (mesh.children.some((c) => c.name === 'outline')) continue;
     const geometry = mesh.geometry as THREE.BufferGeometry;
     if (getOutlineNormals(geometry) === null) continue;
 

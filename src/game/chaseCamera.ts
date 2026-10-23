@@ -23,13 +23,13 @@ const MAX_FOV = 74; // FOV at V_MAX
 const BOOST_FOV = 7; // the old Space payout now opens a visible speed tunnel
 const FLIGHT_FOV = [78, 80, 82] as const;
 const FOV_HARD_MAX = 86;
-const FOV_RATE = 6; // /s base FOV smoothing
+const FOV_RATE = 6.5; // /s base FOV smoothing
 const BOOST_IN = 14; // /s boost FOV attack (fast in)
 const BOOST_OUT = 1.8; // /s boost FOV release (slow out)
 const CHASE_BACK = 9.5; // rest distance behind the boat (m)
 const CHASE_UP = 3.6; // rest height above the boat (m)
 const CHASE_MIN_DIST = 6.5; // hard floor for the brake tuck-in (m)
-const LOOK_AHEAD = 4; // look-at point this far past the bow (m)
+const LOOK_AHEAD = 4.2; // look-at point this far past the bow (m)
 const SPRING_K = 58; // follow-spring stiffness
 const SPRING_DAMP = 11; // slightly under critical (2*sqrt(K) ≈ 15.2)
 const FLIGHT_SPRING_K = 32; // slower vertical follow makes the lift readable
@@ -40,9 +40,9 @@ const FLIGHT_BLEND_RATE = 6;
 const ACCEL_LAG = 0.24; // extra hang-back meters per m/s² of longG
 const ACCEL_LAG_MAX = 2.2;
 const ACCEL_LAG_RATE = 4; // /s smoothing on the lag term
-const ROLL_PER_G = 0.008; // rad of camera roll per m/s² lateralG
-const ROLL_MAX = 0.061; // ≈ 3.5°
-const ROLL_RATE = 7; // /s roll smoothing
+const ROLL_PER_G = 0.012; // rad of camera roll per m/s² lateralG
+const ROLL_MAX = 0.14; // ≈ 8.0° dynamic roll bank into turns
+const ROLL_RATE = 8.5; // /s roll smoothing
 const LOOK_RATE = 12; // /s look-at smoothing (chase)
 const ORBIT_RATE = 2.6; // /s position smoothing (orbit/results)
 const ORBIT_LOOK_RATE = 5; // /s look-at smoothing (orbit/results)
@@ -85,11 +85,14 @@ export class CameraRig {
   private flightWasActive = false;
   private boostWasActive = false;
   private driftBlend = 0;
+  private diveBlend = 0;
+  private climbBlend = 0;
   private impactFov = 0;
   private impactBack = 0;
   private impactDip = 0;
   private shakeAmp = 0;
   private noiseT = 0;
+  private readonly boatEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 
   // mode-blend snapshot
   private blendT = 1;
@@ -248,6 +251,32 @@ export class CameraRig {
       const driftTarget = !this.reducedMotion && st.drifting ? 1 : 0;
       this.driftBlend += (driftTarget - this.driftBlend) * (1 - Math.exp(-10 * dt));
 
+      // Extract aerodynamic pitch and hull roll
+      this.boatEuler.setFromQuaternion(st.quaternion, 'YXZ');
+      const pitch = this.boatEuler.x; // pitch: negative = nose down / dive, positive = nose up / climb
+      const hullRoll = this.boatEuler.z;
+
+      // Dive dynamics (俯冲换速与俯角拉远/广角张开)
+      const divePitchN = clamp((-pitch - 0.02) / 0.28, 0, 1);
+      const descendN = st.flightPhase === 'descending' ? 0.35 : 0;
+      const speedDiveN = clamp((st.speed - 32) / 16, 0, 1) * 0.4;
+      const diveTarget = flightActive ? clamp(Math.max(divePitchN, descendN) + speedDiveN * (divePitchN > 0.1 ? 1 : 0.4), 0, 1) : 0;
+      this.diveBlend += (diveTarget - this.diveBlend) * (1 - Math.exp(-7.5 * dt));
+
+      // Climb dynamics (仰冲拉近与仰角收拢)
+      const climbPitchN = clamp((pitch - 0.02) / 0.30, 0, 1);
+      const ascendN = st.flightPhase === 'ascending' ? 0.45 : 0;
+      const thermalN = st.thermalUpdraft * 0.55;
+      const climbTarget = flightActive ? clamp(Math.max(climbPitchN, ascendN, thermalN), 0, 1) : 0;
+      this.climbBlend += (climbTarget - this.climbBlend) * (1 - Math.exp(-7.0 * dt));
+
+      // Natural wind breathing & ground effect
+      const breathAmp = this.flightBlend * (0.35 + 0.35 * st.flightPressure);
+      const breathFov = Math.sin(t * 3.2) * 0.45 * breathAmp;
+      const breathBob = Math.sin(t * 2.6) * 0.09 * breathAmp;
+      const tunnelFov = st.windTunnelBoost * 3.4;
+      const groundDrop = st.groundEffect * 0.22;
+
       // accel lag: hang back under throttle, tuck in under braking
       const lagT = clamp(st.longG * ACCEL_LAG, -ACCEL_LAG_MAX, ACCEL_LAG_MAX);
       this.accelLag += (lagT - this.accelLag) * (1 - Math.exp(-ACCEL_LAG_RATE * dt));
@@ -257,27 +286,39 @@ export class CameraRig {
         this.impactBack = Math.max(this.impactBack, 1.65);
       }
       this.boostWasActive = st.boosting;
+
+      // Dynamic distance: stretches further back on dive, tucks closer on climb
+      const diveDist = this.diveBlend * 2.5;
+      const climbDist = this.climbBlend * 1.8;
       const dist = Math.max(
         CHASE_MIN_DIST,
-        CHASE_BACK + this.accelLag + this.impactBack + st.flightPressure * 0.45 - st.flightAirBrake * 0.65,
+        CHASE_BACK + this.accelLag + this.impactBack + st.flightPressure * 0.45 - st.flightAirBrake * 0.65 + diveDist - climbDist,
       );
-      const driftSide = st.steer * this.driftBlend * 0.65;
+
+      // Lateral drift & centrifugal overload shift
+      const driftSide = st.steer * this.driftBlend * 0.75 - (st.lateralG * 0.015 * this.flightBlend);
+      const diveUp = this.diveBlend * 1.3;
+      const climbUp = -this.climbBlend * 0.75;
       target.set(
         bx - fx * dist + fz * driftSide,
-        by + CHASE_UP - this.flightBlend * FLIGHT_CAMERA_DROP - this.impactDip,
+        by + CHASE_UP - this.flightBlend * FLIGHT_CAMERA_DROP - this.impactDip + diveUp + climbUp + breathBob - groundDrop,
         bz - fz * dist - fx * driftSide,
       );
 
-      // look ~4m ahead of the bow, at water height
-      const ax = bx + fx * LOOK_AHEAD;
-      const az = bz + fz * LOOK_AHEAD;
+      // Look-at point: lead into turn apex, pitch down on dive, pitch up on climb
+      const lookDist = LOOK_AHEAD + this.diveBlend * 2.2 + (flightActive ? 1.0 : 0);
+      const lookSteerLead = st.steer * 1.2 * this.flightBlend;
+      const ax = bx + fx * lookDist - fz * lookSteerLead;
+      const az = bz + fz * lookDist + fx * lookSteerLead;
+      const diveLookY = -this.diveBlend * 1.8;
+      const climbLookY = this.climbBlend * 2.8;
       look.set(
         ax,
-        waterHeight(ax, az, t) + Math.max(0, st.flightClearance) * this.flightBlend * FLIGHT_LOOK_GAIN,
+        waterHeight(ax, az, t) + Math.max(0, st.flightClearance) * this.flightBlend * FLIGHT_LOOK_GAIN + diveLookY + climbLookY,
         az,
       );
 
-      // FOV: speed stretch + boost kick (fast in, slow out)
+      // FOV: speed stretch + boost kick + dive wide-angle + climb focus + wind breath + tunnel stretch
       const speedN = clamp(st.speed / V_MAX, 0, 1);
       const boostVisual = st.boosting && !flightActive;
       const bRate = boostVisual ? BOOST_IN : BOOST_OUT;
@@ -285,18 +326,22 @@ export class CameraRig {
       const surfaceFov = BASE_FOV + (MAX_FOV - BASE_FOV) * speedN + this.boostFov;
       const flightIndex = clamp(st.flightRouteIndex >= 0 ? st.flightRouteIndex : st.flightsCleared, 0, 2);
       const sustainedFlightFov = FLIGHT_FOV[flightIndex];
+      const diveFov = this.diveBlend * 5.8;
+      const climbFov = -this.climbBlend * 2.2;
+      const flightBaseFov = surfaceFov + (sustainedFlightFov - surfaceFov) * this.flightBlend;
       fovTarget = clamp(
-        surfaceFov + (sustainedFlightFov - surfaceFov) * this.flightBlend + this.impactFov,
+        flightBaseFov + this.impactFov + diveFov + climbFov + breathFov + tunnelFov,
         BASE_FOV - 8,
         FOV_HARD_MAX,
       );
 
-      // tiny roll into turns, proportional to lateralG
+      // Dynamic roll bank into turns, combining lateral Gs and airframe wing bank
       const driftRoll = 1 + this.driftBlend * 0.55;
+      const bankRoll = (st.lateralG * ROLL_PER_G + (flightActive ? hullRoll * 0.24 : 0)) * (driftRoll + st.flightAirBrake * 0.55);
       rollTarget = this.reducedMotion
         ? 0
         : clamp(
-            st.lateralG * ROLL_PER_G * (driftRoll + st.flightAirBrake * 0.55),
+            bankRoll,
             -ROLL_MAX * (driftRoll + st.flightAirBrake * 0.8),
             ROLL_MAX * (driftRoll + st.flightAirBrake * 0.8),
           );

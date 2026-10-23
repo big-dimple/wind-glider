@@ -467,10 +467,7 @@ export class Race implements RaceView {
         this.setCourseWarning(r, 'off_course');
         r.progress = this.windowedProgress(id);
         this.prevContU[id] = this.contU[id];
-        if (this.offCourseT[id] >= OFF_COURSE_FAIL_HOLD_S) {
-          this.defeatSurface('off_course', Math.max(_sample.distance, expectedDistance));
-          return;
-        }
+        void expectedDistance;
         continue;
       }
 
@@ -539,14 +536,10 @@ export class Race implements RaceView {
             this.wrongT[id] = 0;
             if (!offCourse || id !== this.boats[0].id) this.setCourseWarning(r, 'none');
           }
-          if (id === this.boats[0].id && this.offCourseT[id] >= OFF_COURSE_FAIL_HOLD_S) {
-            this.defeatSurface('off_course', _sample.distance);
-            return;
-          }
-          if (id === this.boats[0].id && this.wrongT[id] >= WRONG_WAY_FAIL_HOLD_S) {
-            this.defeatSurface('wrong_way', _sample.distance);
-            return;
-          }
+          // Never terminate the player's race for drifting wide or turning sharply;
+          // keep the warning active while the channel current guides them back.
+          void OFF_COURSE_FAIL_HOLD_S;
+          void WRONG_WAY_FAIL_HOLD_S;
         }
 
         // checkpoint gates: rising edge, in order, near the spline

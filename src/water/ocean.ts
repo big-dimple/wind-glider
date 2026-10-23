@@ -382,7 +382,7 @@ void main() {
   float warpKeep = dist < 150.0 ? 1.0 : (dist < uWarpFade ? 0.5 : 0.0);
   float detail = dist < uDetailFadeA ? 1.0 : (dist < uDetailFadeB ? 0.5 : 0.0);
 
-  // --- 1. cel color bands, domain-warped: HARD thresholds on warped vH ----
+  // --- 1. cel color bands, domain-warped: soft watercolor transitions on warped vH ----
   // Three noise octaves wobble the band thresholds: the 64 m macro octave
   // chops the big silhouettes, the 11 m / 5 m octaves chop the local edges.
   float warp = (vnoise(vOrigXZ / uWarpScaleA) - 0.5) * uWarpAmp * warpKeep
@@ -390,59 +390,70 @@ void main() {
              + (vnoise(vOrigXZ / uWarpScaleC + 7.3) - 0.5) * uWarpAmp * 1.25 * (warpKeep > 0.0 ? 1.0 : 0.0);
   float vHw = vH + warp;
 
-  vec3 col = uColorDeep;
-  if (vHw > uBandDeep) col = uColorMid;
-  if (vHw > uBandCrest) col = uColorCrest;
-  // per-band ink richness: two hard tone patches, never a gradient
-  float tonePatch = hash12(floor(vOrigXZ / uPatchScale));
-  float patchStrength = uPatchStrength * detail;
-  col *= 1.0 - patchStrength + 2.0 * patchStrength * step(0.5, tonePatch);
+  // Soft-stepped watercolor wash transitions (Ghibli multi-layered sea swells)
+  float tDeepToMid = smoothstep(uBandDeep - 0.14, uBandDeep + 0.16, vHw);
+  float tMidToCrest = smoothstep(uBandCrest - 0.16, uBandCrest + 0.14, vHw);
+  vec3 col = mix(uColorDeep, uColorMid, tDeepToMid);
+  col = mix(col, uColorCrest, tMidToCrest);
 
-  // --- 2. deep-band interior: diagonal streak bands, hard-edged, subtle ---
-  // One slightly lighter deep tone in long dash-segmented diagonal bands so
-  // the largest area of frame always has graphic content. Straight edges are
-  // intentional — the warped band silhouette chops them organically.
-  if (vHw <= uBandDeep && detail > 0.0) {
+  // Organic Ghibli gouache swell brushwork (replaces blocky 18m checkerboard squares)
+  float swellBrush = sin(vOrigXZ.x * 0.14 + vOrigXZ.y * 0.09 + warp * 3.5) *
+                     cos(vOrigXZ.x * 0.06 - vOrigXZ.y * 0.12 + uTime * 0.35);
+  col *= 1.0 + swellBrush * uPatchStrength * 0.65 * detail;
+
+  // --- 2. deep-band interior: flowing wind-current ribbons ---
+  if (vHw <= uBandDeep + 0.15 && detail > 0.0) {
     vec2 dg = vec2(vOrigXZ.x + vOrigXZ.y, vOrigXZ.x - vOrigXZ.y) * 0.7071;
-    float bandPos = (dg.x + uTime * uDeepStreakDrift) / uDeepStreakScale;
-    float bandRow = floor(bandPos);
-    float lit = step(fract(bandPos), uDeepStreakDuty);
-    // long dash gaps along each streak, offset per row so gaps never align
-    float dashPos = dg.y / (uDeepStreakScale * 1.9) + bandRow * 0.37;
-    lit *= step(fract(dashPos), 0.62);
-    col *= 1.0 + uDeepStreakStrength * lit * detail;
+    float bandPos = (dg.x + warp * 12.0 + uTime * uDeepStreakDrift) / uDeepStreakScale;
+    float waveRibbon = smoothstep(0.32, 0.68, sin(bandPos * 6.283185) * 0.5 + 0.5);
+    col = mix(col, uColorMid * 0.92, waveRibbon * uDeepStreakStrength * 0.45 * detail);
   }
 
-  // --- 2.5 underwater caustics: dual-layer Voronoi light web ---------------
-  // Refracted by the surface wave normal n.xz so caustics undulate with waves
+  // --- 2.5 emerald-turquoise subsurface wave glow & delicate underwater caustics ---
   if (detail > 0.0) {
     vec2 refractUV = vOrigXZ + n.xz * uCausticRefract;
-    // Layer 1: Macro swell network
     vec2 uv1 = refractUV / uCausticScaleA + vec2(0.42, 0.28) * (uTime * uCausticSpeed);
     float c1 = causticLayer(uv1, uTime * 1.35);
 
-    // Layer 2: Micro chop network (rotated drift angle & finer scale)
     vec2 uv2 = (refractUV + vec2(17.4, 31.9)) / uCausticScaleB + vec2(-0.35, 0.52) * (uTime * uCausticSpeed * 1.22);
     float c2 = causticLayer(uv2, uTime * 1.65 + 3.14);
 
-    // Dual-layer optical interference: focal knots at layer intersections
     float rawCaustic = min(c1, c2) * 0.75 + pow(c1 * c2, 1.3) * 0.85;
+    float causticLobe = smoothstep(0.24, 0.58, rawCaustic);
+    float causticCore = smoothstep(0.52, 0.60, rawCaustic);
+    float causticPattern = causticLobe * 0.55 + causticCore * 0.45;
 
-    // Stylized cel quantization: crisp light ribbon + soft watercolor halo
-    float causticLobe = smoothstep(0.18, 0.55, rawCaustic);
-    float causticCore = step(0.52, rawCaustic);
-    float causticPattern = causticLobe * 0.6 + causticCore * 0.4;
-
-    // Depth penetration mask: strongest in mid/shallow water, softly fades into deep
-    float depthMask = smoothstep(uBandDeep - 0.35, uBandDeep + 0.2, vHw);
-
-    // Direct sunlight boost on sunward wave slopes
+    float depthMask = smoothstep(uBandDeep - 0.10, uBandCrest + 0.15, vHw);
     float sunFacing = max(dot(n, uSunDir), 0.0);
-    float sunMod = 0.6 + 0.4 * sunFacing;
+    float sunMod = 0.55 + 0.45 * sunFacing;
 
-    // Apply caustics with warm sunlight/turquoise radiance
-    vec3 cColor = mix(uColorCaustic, uColorCrest, 0.25);
-    col = mix(col, cColor, causticPattern * uCausticStrength * depthMask * sunMod * detail);
+    // Translucent emerald-jade glow inside rising wave crests (Ponyo / Porco Rosso wave translucency)
+    float sss = pow(sunFacing, 1.8) * smoothstep(-0.05, uBandCrest + 0.18, vHw);
+    vec3 jadeGlow = vec3(0.24, 0.80, 0.78);
+    col = mix(col, jadeGlow, clamp(sss * 0.34 * detail, 0.0, 0.36));
+
+    // Subtle aquamarine caustic web (never washes out the blue sea to yellow)
+    vec3 aquaCaustic = mix(uColorCrest, vec3(0.58, 0.94, 0.96), 0.55);
+    col = mix(col, aquaCaustic, clamp(causticPattern * uCausticStrength * 0.42 * depthMask * sunMod * detail, 0.0, 0.28));
+  }
+
+  // --- 2.8 Studio Ghibli hand-drawn rolling wave lines & whitecap rollers (吉卜力手绘海浪波峰线与白浪花) ---
+  if (detail > 0.0) {
+    // Primary rolling wave crest whitecaps along elevated wave ridges
+    float crestRibbon = smoothstep(uBandCrest - 0.08, uBandCrest + 0.16, vHw);
+    float foamNoise = vnoise(vOrigXZ * 0.22 + vec2(uTime * 0.45, -uTime * 0.32));
+    float fineBubbles = vnoise(vOrigXZ * 0.68 - vec2(uTime * 0.7, uTime * 0.5));
+    float whitecapMask = smoothstep(0.42, 0.74, crestRibbon * (0.65 + 0.55 * foamNoise));
+    float laceCut = smoothstep(0.28, 0.62, fineBubbles);
+    vec3 rollerCol = mix(uColorWash, uColorFoam, laceCut);
+    col = mix(col, rollerCol, whitecapMask * (0.45 + 0.45 * laceCut) * detail);
+
+    // Secondary wind-swept rhythmic wave contour lines in mid/crest swells
+    float wavePhase = dot(vOrigXZ, vec2(0.82, 0.57)) * 0.19 + warp * 5.2 - uTime * 1.35;
+    float waveLine = smoothstep(0.84, 0.97, sin(wavePhase));
+    float lineBreak = smoothstep(0.35, 0.72, vnoise(vOrigXZ * 0.11 + 13.7));
+    float contourMask = waveLine * lineBreak * smoothstep(uBandDeep + 0.05, uBandCrest, vHw);
+    col = mix(col, mix(uColorCrest, uColorFoam, 0.55), contourMask * 0.48 * detail);
   }
 
   // --- 3. crest foam caps & lace filigree: Ghibli watercolor lace foam ----
@@ -575,10 +586,10 @@ void main() {
     }
   }
 
-  // --- 6. hard distance fog bands: horizon melts into the sky -------------
-  if (dist > uFogFar) col = uColorHorizon;
-  else if (dist > uFogMid) col = mix(col, uColorHorizon, uFogFarMix);
-  else if (dist > uFogStart) col = mix(col, uColorHorizon, uFogMidMix);
+  // --- 6. smooth Ghibli sea-to-horizon atmospheric blend -------------------
+  float fogNear = smoothstep(uFogStart, uFogMid, dist) * uFogMidMix;
+  float fogDist = smoothstep(uFogMid, uFogFar, dist);
+  col = mix(col, uColorHorizon, clamp(fogNear + fogDist * (1.0 - fogNear), 0.0, 0.94));
 
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
@@ -604,30 +615,30 @@ export class Ocean {
       uCameraFar: { value: opts.cameraFar },
 
       uMaxAmp: { value: MAX_AMPLITUDE },
-      uBandDeep: { value: -0.45 },
-      uBandCrest: { value: 0.45 },
+      uBandDeep: { value: -0.32 },
+      uBandCrest: { value: 0.28 },
       uPatchScale: { value: 18.0 },
-      uPatchStrength: { value: 0.07 },
+      uPatchStrength: { value: 0.06 },
 
-      uWarpAmp: { value: 0.17 },
+      uWarpAmp: { value: 0.22 },
       uWarpScaleA: { value: 11.0 },
       uWarpScaleB: { value: 5.0 },
       uWarpScaleC: { value: 64.0 },
-      uWarpFade: { value: 350.0 },
+      uWarpFade: { value: 420.0 },
 
-      uDeepStreakScale: { value: 28.0 },
+      uDeepStreakScale: { value: 24.0 },
       uDeepStreakDuty: { value: 0.35 },
-      uDeepStreakStrength: { value: 0.19 },
-      uDeepStreakDrift: { value: 1.2 },
+      uDeepStreakStrength: { value: 0.18 },
+      uDeepStreakDrift: { value: 1.4 },
 
-      uCrestCapW: { value: 1.3 },
-      uCapScallop: { value: 0.3 },
-      uCapArcLen: { value: 6.0 },
-      uCapArcCut: { value: 0.5 },
+      uCrestCapW: { value: 1.85 },
+      uCapScallop: { value: 0.32 },
+      uCapArcLen: { value: 6.5 },
+      uCapArcCut: { value: 0.34 },
       uCapFps: { value: 4.0 },
-      uCapRiseGate: { value: 0.05 },
-      uLaceScale: { value: 2.2 },
-      uLaceSpeed: { value: 0.6 },
+      uCapRiseGate: { value: -0.02 },
+      uLaceScale: { value: 2.1 },
+      uLaceSpeed: { value: 0.65 },
 
       uGlintFps: { value: 6.0 },
       uGlintLaneCos: { value: 0.9 },
@@ -638,45 +649,45 @@ export class Ocean {
       uGlintSizeB: { value: 1.0 },
       uGlintSizeC: { value: 3.6 },
       uGlintCrest: { value: 0.05 },
-      uGlintFadeA: { value: 70.0 },
-      uGlintFadeB: { value: 160.0 },
+      uGlintFadeA: { value: 75.0 },
+      uGlintFadeB: { value: 170.0 },
 
-      uFoamRingWidth: { value: 1.6 },
-      uFoamRingOuter: { value: 0.9 },
-      uFoamRingBreak: { value: 0.4 },
-      uRingChunk: { value: 0.9 },
+      uFoamRingWidth: { value: 1.9 },
+      uFoamRingOuter: { value: 1.1 },
+      uFoamRingBreak: { value: 0.32 },
+      uRingChunk: { value: 0.85 },
       uRingBias: { value: 0.03 },
       uFoamRingFps: { value: 5.0 },
       uRingContact: { value: 0.35 },
-      uRingContactShade: { value: 0.72 },
-      uRingMaxDist: { value: 150.0 },
+      uRingContactShade: { value: 0.76 },
+      uRingMaxDist: { value: 180.0 },
 
-      uDetailFadeA: { value: 90.0 },
-      uDetailFadeB: { value: 170.0 },
+      uDetailFadeA: { value: 140.0 },
+      uDetailFadeB: { value: 260.0 },
 
-      uFogStart: { value: 150.0 },
-      uFogMid: { value: 650.0 },
-      uFogFar: { value: 2800.0 },
-      uFogMidMix: { value: 0.45 },
-      uFogFarMix: { value: 0.8 },
+      uFogStart: { value: 220.0 },
+      uFogMid: { value: 780.0 },
+      uFogFar: { value: 2600.0 },
+      uFogMidMix: { value: 0.38 },
+      uFogFarMix: { value: 0.82 },
 
-      uColorDeep: { value: new THREE.Color(PALETTE.waterDeep) },
-      uColorMid: { value: new THREE.Color(PALETTE.waterMid) },
-      uColorCrest: { value: new THREE.Color(PALETTE.waterCrest) },
+      uColorDeep: { value: new THREE.Color(0x134a80) },
+      uColorMid: { value: new THREE.Color(0x1c75ad) },
+      uColorCrest: { value: new THREE.Color(0x36b5c9) },
       uColorFoam: { value: new THREE.Color(PALETTE.foam) },
       uColorWash: {
-        value: new THREE.Color(PALETTE.foam).lerp(new THREE.Color(PALETTE.waterCrest), 0.35),
+        value: new THREE.Color(0x9be6ec),
       },
       uColorSparkle: { value: new THREE.Color(PALETTE.sparkle) },
-      uColorCaustic: { value: new THREE.Color(PALETTE.sparkle) },
+      uColorCaustic: { value: new THREE.Color(0x6fe3ec) },
       uColorHorizon: { value: new THREE.Color(PALETTE.skyHorizon) },
       uSunDir: { value: new THREE.Vector3(sun[0], sun[1], sun[2]).normalize() },
 
-      uCausticScaleA: { value: 4.8 },
-      uCausticScaleB: { value: 2.6 },
+      uCausticScaleA: { value: 5.2 },
+      uCausticScaleB: { value: 2.8 },
       uCausticSpeed: { value: 0.45 },
-      uCausticRefract: { value: 1.6 },
-      uCausticStrength: { value: 0.55 },
+      uCausticRefract: { value: 1.5 },
+      uCausticStrength: { value: 0.38 },
     };
 
     const material = new THREE.ShaderMaterial({

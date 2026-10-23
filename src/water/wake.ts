@@ -171,94 +171,44 @@ void main() {
     return;
   }
 
-  // ---- silhouette, indexed by METERS ASTERN -------------------------------
-  // Scalloped wash core that pinches out with age + two diverging V-arms
-  // that break into dashes astern. Dissipation is DENSITY (keep/discard),
-  // never low alpha: semi-transparent white over deep navy reads mud-gray.
-  float s = fract(vAlong / uStamp);
-  float tri = abs(s - 0.5) * 2.0;               // 0..1..0 rhythm per stamp
+  // ---- Studio Ghibli Watercolor V-Wake & Aerated Turquoise Wash -----------
+  float latM = vLat * vHalfW;
+  float waveRipple = sin(vAlong * 0.55 - uTime * 3.2) * 0.04 + sin(vAlong * 1.35 + uTime * 2.1) * 0.025;
 
-  // wash core: scalloped half-width, narrowing astern, pinches out ~80m
-  float pinch = vBehind < 50.0 ? 1.0 : max(0.0, 1.0 - (vBehind - 50.0) / 30.0);
-  float coreW = 0.45 * (0.72 + 0.28 * tri) * pinch;
-  bool core = lat < coreW;
+  // 1. Center aerated turbulent wash core (narrows smoothly astern)
+  float pinch = clamp(1.0 - vBehind / 68.0, 0.0, 1.0);
+  float coreW = (0.46 + waveRipple) * pinch;
+  float coreMask = (1.0 - smoothstep(coreW * 0.55, coreW, lat)) * pinch;
 
-  // V arms at the rim. Edges WOBBLE along the ribbon (per-stamp hash) so the
-  // arm outline never reads as a drafted straight line; solid near the
-  // transom, dashed astern, gone by ~50m.
-  float armCell = floor(vAlong / (uStamp * 1.6));
-  float armWob = (hash12(vec2(armCell, 31.0)) - 0.5) * 0.22;
-  float armIn = 0.72 + armWob;
-  float armOut = 0.92 + armWob * 0.6;
-  float armDash = hash12(vec2(armCell, 7.0));
-  bool arm = lat > armIn && lat < armOut && (vBehind < 24.0 || armDash > (vBehind - 24.0) / 26.0);
-  if (!core && !arm) discard;
+  // 2. Twin curling V-wave arms along the outer wake rim
+  float armCenter = 0.78 + waveRipple * 0.8;
+  float armHalfW = mix(0.14, 0.08, clamp(vBehind / 55.0, 0.0, 1.0));
+  float armProfile = 1.0 - smoothstep(armHalfW * 0.35, armHalfW, abs(lat - armCenter));
+  float armFade = clamp(1.0 - vBehind / 58.0, 0.0, 1.0);
+  float armMask = armProfile * armFade;
 
-  // ---- streak-gap breakup & lace filigree in ribbon-UV space --------------
-  // Gaps are cells elongated ~4:1 ALONG the travel direction (streaks, not
-  // squares); every lateral row is jittered along by its own hash so holes
-  // can never line up in neat axis-aligned rows. Near the transom the ribbon
-  // is narrow, so the cells (and their notches) SHRINK — full-size cells at
-  // close range read as blue lightning cracks in the foam, not breakup.
-  float gapW = vBehind < 8.0 ? uGapW * 0.55 : uGapW;
-  float gapL = vBehind < 8.0 ? uGapL * 0.55 : uGapL;
-  float latM = vLat * vHalfW;                       // lateral meters
-  float row = floor(latM / gapW);
-  float rowJit = hash12(vec2(row * 3.7, 13.0)) * gapL;
-  float colId = floor((vAlong + rowJit) / gapL);
-  float tq = floor(uTime * uFps);
-  float m = hash12(vec2(colId, row * 1.31) + tq * 0.37);
+  // 3. Delicate Voronoi bubble lace filigree (no blocky rectangular grid cutouts!)
+  float porosity = clamp(vBehind / 52.0, 0.0, 0.85);
+  vec2 laceUV = vec2(vAlong * 0.42, latM * 0.85) * uLaceScale;
+  float lace = wakeLacePattern(laceUV, uTime * 1.4, porosity);
 
-  // density thins with distance astern (hard steps)
-  float keep = vBehind < 10.0 ? 0.85 : (vBehind < 30.0 ? 0.55 : (vBehind < 55.0 ? 0.3 : 0.15));
-  if (arm) keep = min(1.0, keep + 0.25);
-  // solid white churn at the transom
-  if (vBehind < 2.5 && lat < 0.85) keep = 1.0;
-  // scallop arc: half-ellipse cap opening astern, stamped at fixed intervals,
-  // broken into lateral chunks so it never reads as a full-width tread bar
-  if (s < 0.3) {
-    float arc = (s - 0.15) / 0.15;
-    float capHalf = (coreW + 0.16) * sqrt(max(0.0, 1.0 - arc * arc));
-    float stampRow = hash12(vec2(row * 2.9, floor(vAlong / uStamp) * 0.7 + 3.0));
-    if (lat < capHalf && stampRow > 0.3) keep = max(keep, 0.98);
+  // Combine V-arms and center wash with lace filigree
+  float wakeDensity = max(armMask * (0.65 + 0.35 * lace), coreMask * (0.35 + 0.65 * lace));
+  // Fresh white churn right behind the stern
+  if (vBehind < 4.5) {
+    float sternBoost = (1.0 - vBehind / 4.5) * (1.0 - smoothstep(0.45, 0.88, lat));
+    wakeDensity = max(wakeDensity, sternBoost);
   }
 
-  // Procedural Voronoi lace filigree
-  float porosity = clamp(vBehind / 50.0, 0.0, 1.0);
-  vec2 laceUV = vec2(vAlong * 0.65, latM * 1.1) * uLaceScale;
-  float lace = wakeLacePattern(laceUV, uTime * uFps * 0.25, porosity);
+  if (wakeDensity < 0.12) discard;
 
-  // shaped two-step cut: cells deep past the threshold vanish, boundary
-  // cells shrink to a DIAMOND core in a per-cell rotated frame — cutout
-  // edges never align into axis-aligned tetris blocks
-  if (m > keep + 0.14) discard;
-  if (m > keep) {
-    vec2 gUV = vec2(fract((vAlong + rowJit) / gapL), fract(latM / gapW));
-    float ra = (hash12(vec2(colId * 1.7, row * 2.3)) - 0.5) * 1.2;
-    vec2 q = gUV - 0.5;
-    vec2 qr = vec2(q.x * cos(ra) - q.y * sin(ra), q.x * sin(ra) + q.y * cos(ra));
-    // shallower notches near the transom (smaller cells, smaller cracks)
-    if (abs(qr.x) + abs(qr.y) > (vBehind < 8.0 ? 0.3 : 0.42)) discard;
-  }
+  // Watercolor pigment layering: creamy white foam crests -> turquoise aerated wash -> cerulean trail
+  float foamHighlight = smoothstep(0.52, 0.82, wakeDensity) * clamp(1.0 - vBehind / 36.0, 0.0, 1.0);
+  vec3 baseWash = mix(uColorAged, uColorWash, clamp(1.0 - vBehind / 45.0, 0.0, 1.0));
+  vec3 col = mix(baseWash, uColorFoam, foamHighlight);
 
-  // Filigree lace pore opening on mid/aged wake
-  if (vBehind > 5.0 && lace < 0.20 && m > keep * 0.65) discard;
-
-  // ---- watercolor color layering & edge bleeding -------------------------
-  // Fresh high-energy foam -> turquoise watercolor wash -> aged soft tint
-  vec3 col = uColorFoam;
-  if (vBehind >= 10.0 && vBehind < 26.0) {
-    col = mix(uColorWash, uColorFoam, smoothstep(0.2, 0.6, lace));
-  } else if (vBehind >= 26.0) {
-    col = mix(uColorAged, uColorWash, smoothstep(0.25, 0.65, lace));
-  } else if (lace < 0.45 && vBehind > 2.5) {
-    // Watercolor wash fringe around fresh bubble pores
-    col = mix(uColorWash, uColorFoam, smoothstep(0.20, 0.45, lace));
-  }
-
-  // Opaque foam: alpha stays high, structure comes from the mask & watercolor wash
-  float a = vBehind < 10.0 ? 1.0 : (vBehind < 30.0 ? 0.95 : 0.85);
-  a *= vIntensity > 0.5 ? 1.0 : 0.8;
+  float a = smoothstep(0.12, 0.42, wakeDensity) * (1.0 - smoothstep(42.0, 72.0, vBehind));
+  a *= clamp(vIntensity * 1.15, 0.35, 0.92);
 
   gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>

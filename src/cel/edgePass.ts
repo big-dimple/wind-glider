@@ -99,16 +99,18 @@ void main() {
 
   // ------------------------------------------------------------------
   // DEPTH: Roberts cross on linearized view-z (diagonals only — thin,
-  // no halo). Keep MILD discontinuities, REJECT huge ones: a giant delta
-  // means object-vs-background, and the inverted hull owns that line.
+  // no halo). Scale gradient by view distance so sloped cliffs/mountains
+  // at 80m-900m never false-trigger solid brown ink bands across their faces.
   // ------------------------------------------------------------------
+  float dC  = linearDepth(vUv);
   float dTL = linearDepth(uvTL);
   float dTR = linearDepth(uvTR);
   float dBL = linearDepth(uvBL);
   float dBR = linearDepth(uvBR);
-  float depthGrad = abs(dTL - dBR) + abs(dTR - dBL);
+  float distScale = max(1.0, dC * 0.085);
+  float depthGrad = (abs(dTL - dBR) + abs(dTR - dBL)) / distScale;
   float depthEdge = step(uDepthThreshold, depthGrad)
-                  * (1.0 - step(uSilhouetteDepth, depthGrad));
+                  * (1.0 - step(min(uSilhouetteDepth, 9.5), depthGrad));
 
   // ------------------------------------------------------------------
   // SILHOUETTE MASK: the prepass clears alpha to 0 (background) and
@@ -117,7 +119,9 @@ void main() {
   // ------------------------------------------------------------------
   float mask = step(0.5, min(min(min(nL.a, nR.a), min(nT.a, nB.a)), nC.a));
 
-  float edge = max(normalEdge, depthEdge) * mask * uStrength;
+  // Soften pen-line weight on far background mountains so Ghibli gouache washes breathe
+  float distAtten = 1.0 - smoothstep(70.0, 260.0, dC) * 0.78;
+  float edge = max(normalEdge, depthEdge) * mask * uStrength * distAtten;
 
   // ------------------------------------------------------------------
   // APPLY: multiply and tint ink over the scene color.

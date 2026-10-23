@@ -108,11 +108,11 @@ for (const racer of roster) {
   const wake = new WakeRibbon();
   stage.scene.add(wake.object);
   wakes.push(wake);
-  const boat = new Boat({ id: racer.id, color: racer.color, wake, spray, trail: jetTrail, detailedInk });
-  boat.setDriver(racer.color, driverProfile(racer.profileId).handling);
+  const boat = new Boat({ id: racer.id, color: racer.color, wake, spray, trail: jetTrail, course, detailedInk });
+  boat.setDriver(racer.color, driverProfile(racer.profileId).handling, racer.profileId);
   stage.scene.add(boat.object);
   boats.push(boat);
-  const rider = new Rider({ color: racer.color, detailedInk });
+  const rider = new Rider({ profileId: racer.profileId, color: racer.color, detailedInk });
   boat.riderMount.add(rider.object);
   riders.push(rider);
 }
@@ -324,8 +324,8 @@ function applySelectedDriver(id: string): void {
   rivalDirector.setRoster(roster);
   for (const definition of roster) {
     const profile = driverProfile(definition.profileId);
-    boats[definition.id].setDriver(definition.color, profile.handling);
-    riders[definition.id].setColor(definition.color);
+    boats[definition.id].setDriver(definition.color, profile.handling, profile.id);
+    riders[definition.id].setProfile(profile.id, definition.color);
   }
   ais = buildAiControllers();
   race.setDefinitions(roster);
@@ -405,7 +405,7 @@ function requestRetry(): void {
 }
 
 function resumeInterruption(): void {
-  if (!interruptionActive || document.hidden) return;
+  if (document.hidden) return;
   interruptionActive = false;
   stopInterruptionPadPoll();
   input.reset();
@@ -908,7 +908,7 @@ function step(dt: number, _t: number): void {
     for (let i = 0; i < boats.length; i++) {
       const state = boats[i].state;
       const routeState = state.flightRouteState;
-      if (i > 0 && routeState === 'failed' && state.flightPhase === 'surface') {
+      if (routeState === 'failed' && state.flightPhase === 'surface') {
         boats[i].recoverFailedFlightRoute();
         routeLifecycleStates[i] = boats[i].state.flightRouteState;
         harnessPrevRouteStates[i] = boats[i].state.flightRouteState;
@@ -921,11 +921,7 @@ function step(dt: number, _t: number): void {
       }
       if (routeState === routeLifecycleStates[i]) continue;
       routeLifecycleStates[i] = routeState;
-      if (routeState === 'failed') {
-        if (i === 0) {
-          if (state.flightFailure) race.defeatFlight(state.flightFailure);
-        }
-      } else if (routeState === 'passed') {
+      if (routeState === 'passed') {
         if (i === 0) playerPassedFlight = true;
       }
     }

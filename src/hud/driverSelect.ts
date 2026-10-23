@@ -316,12 +316,12 @@ export class DriverSelect {
     this.render(!desktopTransition, !desktopTransition);
     if (notify) {
       this.root.dataset.switchDirection = String(switchDirection);
+      this.onSelect(next, nextIndex, switchDirection);
       if (desktopTransition) {
         this.animateDesktopSelection(previous, next, switchDirection);
       } else {
         this.startSimpleTransition();
       }
-      this.onSelect(next, nextIndex, switchDirection);
     }
   }
 
@@ -359,12 +359,13 @@ export class DriverSelect {
       this.root.classList.remove('switching');
       delete this.root.dataset.transitionMode;
       this.transitionTimer = 0;
-    }, 460);
+    }, 580);
   }
 
   private animateDesktopSelection(previous: DriverProfile, next: DriverProfile, direction: -1 | 1): void {
     const token = ++this.transitionToken;
     this.root.dataset.transitionMode = 'desktop';
+    this.root.classList.add('switching');
     // Leave scheduling headroom so the public 260 ms convergence contract is
     // still true while the browser is decoding images or presenting WebGL.
     this.transitionTimer = window.setTimeout(() => this.finishDesktopSelection(token, next), 220);

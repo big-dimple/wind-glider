@@ -7,6 +7,10 @@ export default defineConfig({
     // Do not silently leave a second Vite process on 5174 when a previous
     // session still owns the canonical development port.
     strictPort: true,
+    hmr: false,
+    watch: {
+      ignored: ['**/dist/**', '**/harness/**', '**/.git/**', '**/scratch/**'],
+    },
   },
   build: {
     target: 'es2022',

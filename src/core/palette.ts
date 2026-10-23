@@ -11,9 +11,12 @@
 
 export const PALETTE = {
   // Ink — deep warm sepia hand-drawn ink, never pure black or electric indigo.
-  ink: 0x2c1d11,
-  inkCss: '#2c1d11',
-  inkWarm: 0x3d271d,
+  ink: 0x3d2b1f,
+  inkCss: '#3d2b1f',
+  inkWarm: 0x4a3525,
+  inkSepia: 0x3d2b1f,
+  inkSepiaLight: 0x4a3525,
+  inkSepiaCss: '#3d2b1f',
 
   // Sky & Atmosphere (晴空天顶、中景天蓝、地平线暖光、阳光与手绘积雨云)
   skyZenith: 0x4a90e2,
@@ -36,15 +39,36 @@ export const PALETTE = {
   seaFoam: 0xffffff,
   sparkle: 0xfff9c4,
 
-  // Woodcraft, Glider & Ancient Ruins (木质滑翔艇、龙骨、黄铜、手织帆布、古代石门与青藤)
-  boatWood: 0x8d6e63,
-  boatWoodDark: 0x5d4037,
-  boatBrass: 0xffb300,
+  // Woodcraft, Glider & Ancient Ruins (木质滑翔艇、老柚木栈桥、黄铜系缆、手织帆布、古代石门与青藤)
+  boatWood: 0x8b5a2b,
+  boatWoodDark: 0x704214,
+  woodDark: 0x704214,
+  woodDarkCss: '#704214',
+  woodPlank: 0x8b5a2b,
+  woodPlankCss: '#8b5a2b',
+  woodTeak: 0x8b5a2b,
+  woodTeakDark: 0x704214,
+  boatBrass: 0xc8963e,
   gliderCanvas: 0xfff8e1,
   stoneAncient: 0xfaf0e6,
   vineGreen: 0x81c784,
   petalPink: 0xff80ab,
   windTrail: 0xffffff,
+
+  // Chalk Haven, Terracotta Village & Coastal Ecology (白垩海崖、翡翠草坡、红瓦白墙与海洋生态)
+  chalkStone: 0xfff8e7,
+  chalkStoneCss: '#fff8e7',
+  hillsideGreen: 0x78c87a,
+  hillsideGreenCss: '#78c87a',
+  roofTerracotta: 0xe76f51,
+  roofTerracottaCss: '#e76f51',
+  wallChalk: 0xfcf9f2,
+  wallChalkCss: '#fcf9f2',
+  seagullWhite: 0xf8faff,
+  seagullWingGrey: 0x78909c,
+  seagullBeak: 0xffb300,
+  dolphinBody: 0x546e7a,
+  dolphinBelly: 0xe0f7fa,
 
   // Gameplay & Energy (航道、风力蓄能、滑翔风羽、加速)
   racingLine: 0x4db6ac,
