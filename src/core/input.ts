@@ -49,8 +49,7 @@ export class Input {
     const action = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
 
     const steerTarget = left ? -1 : right ? 1 : 0;
-    const rate = steerTarget === 0 ? 14 : (this.steerVal * steerTarget < 0 ? 16 : 9.5);
-    this.steerVal = approach(this.steerVal, steerTarget, rate * dt);
+    this.steerVal = approach(this.steerVal, steerTarget, 7 * dt);
 
     return {
       throttle: 1,

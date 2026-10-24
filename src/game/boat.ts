@@ -60,8 +60,10 @@ const TUNING = {
   yawDamp: 9,            // 1/s approach rate of yaw rate → target
 
   // -- drift / boost --
+  driftLatGMax: 19.5,    // boosted lateral-G authority during surface drift for crisp apex cutting
+  driftYawRateMax: 2.85, // boosted yaw authority during surface drift
   driftGripMul: 0.45,    // lateral grip × this while drifting (−55%)
-  driftYawDampMul: 0.5,  // yaw damping × this while drifting (looser rotation)
+  driftYawDampMul: 1.0,  // responsive yaw damping while drifting
   driftScrub: 0.1,       // 1/s extra forward speed scrub while drifting (slight — not a brake)
   driftMinSpeed: 12,     // m/s — below this, drifting builds no charge
   driftChargeTime: 1.05, // s of held drift for a full 0→1 charge
@@ -84,20 +86,22 @@ const TUNING = {
   returnBrakeDecel: 28,
 
   // -- earned glider flight & aerodynamics (Task 8.1) --
-  flightSpool: 0.08,
-  flightAscend: 0.42,
-  flightCruise: 5.40,
-  flightExtension: 2.60,
-  flightDescend: 0.75,
+  flightSpool: 0.12,
+  flightAscend: 0.52,
+  flightCruise: 5.10,
+  flightExtension: 2.40,
+  flightDescend: 0.78,
   flightClearance: 4.5,  // hull-root height above the live mean water surface
   flightLandingLead: 0.45, // counter moving-wave lag so the landing envelope seats cleanly
-  flightHardCap: 56,
-  flightOmega: 14,         // rad/s, critically damped vertical tracking frequency
-  flightAccelMax: 72,      // m/s², max vertical tracking acceleration
+  flightOmega: 9,        // critically damped vertical target tracking
+  flightAccelMax: 72,    // m/s², smooth elevated climb without snappy overshoot
+  flightDriveAccel: 22,
+  flightDriveGain: 3.2,
+  flightHardCap: 50,
   flightDescentSpeed: 36,
-  flightMissSpeedMul: 0.92,
-  flightMissDriveMul: 0.88,
-  flightMissDriveTime: 0.35,
+  flightMissSpeedMul: 0.7,
+  flightMissDriveMul: 0.3,
+  flightMissDriveTime: 1.0,
 
   // -- glider aerodynamics core --
   glideRatio: 10.5,        // Lift/Drag ratio in neutral glide (~10.5:1)
@@ -2613,28 +2617,33 @@ export class Boat implements IBoat {
     let vF = this.velX * fwdX + this.velZ * fwdZ; // signed forward speed
     let vL = this.velX * portX + this.velZ * portZ; // + = sliding to port
 
-    // Effective surface drift (including air-brake to drift landing handoff)
-    const effectiveDrift = (input.drift || (st.flightPhase === 'surface' && input.airBrake && !surfaceReturnBrake)) && st.flightPhase === 'surface';
+    let surfaceDrift = input.drift && st.flightPhase === 'surface' && !surfaceReturnBrake;
 
-    if (flightWasActive) {
-      // Aerodynamic directional stability (rudders + wing span damping side-slip)
-      const flightGrip = 9.5 + 7.5 * this.airBrakeFx;
-      vL *= Math.max(0, 1 - flightGrip * dt);
-    } else if (surfaceReturnBrake) {
-      const dragCompensation = TUNING.dragQuad * vF * Math.abs(vF);
-      const maxDecel = TUNING.returnBrakeDecel * Math.max(0.5, this.airBrakeFx);
-      const aF = clamp(
-        (TUNING.returnBrakeTargetSpeed - vF) * 3.2 + dragCompensation,
-        -maxDecel,
-        0,
-      );
-      vF += aF * dt;
-      vF = Math.max(0, vF);
-      const brakeGrip = TUNING.lateralGrip + (TUNING.airBrakeGrip - TUNING.lateralGrip) * this.airBrakeFx;
-      vL *= Math.max(0, 1 - brakeGrip * dt);
-    } else if (!st.airborne) {
+    if (!st.airborne || flightWasActive) {
+      // longitudinal: tapered engine + quadratic drag (+ drift scrub)
       let aF: number;
-      if (thr >= 0) {
+      if (flightWasActive) {
+        const authoredTarget = st.flightPhase === 'descending'
+          ? TUNING.flightDescentSpeed
+          : this.flightTargetSpeed;
+        const cruiseTarget = Math.min(TUNING.flightHardCap, authoredTarget);
+        const target = cruiseTarget + (TUNING.airBrakeTargetSpeed - cruiseTarget) * this.airBrakeFx;
+        const dragCompensation = TUNING.dragQuad * vF * Math.abs(vF);
+        const maxDecel = TUNING.airBrakeDecel * Math.max(0.5, this.airBrakeFx);
+        aF = clamp(
+          (target - vF) * TUNING.flightDriveGain + dragCompensation,
+          -maxDecel,
+          TUNING.flightDriveAccel,
+        );
+      } else if (surfaceReturnBrake) {
+        const dragCompensation = TUNING.dragQuad * vF * Math.abs(vF);
+        const maxDecel = TUNING.returnBrakeDecel * Math.max(0.5, this.airBrakeFx);
+        aF = clamp(
+          (TUNING.returnBrakeTargetSpeed - vF) * TUNING.flightDriveGain + dragCompensation,
+          -maxDecel,
+          0,
+        );
+      } else if (thr >= 0) {
         const driveMul = st.flightPenaltyRemaining > 0 ? TUNING.flightMissDriveMul : 1;
         aF = thr * accel * driveMul * Math.max(0, 1 - vF / taperRef);
       } else if (vF > 0.5) {
@@ -2643,12 +2652,14 @@ export class Boat implements IBoat {
         aF = thr * TUNING.reverseAccel * Math.max(0, 1 + vF / TUNING.reverseSpeed);
       }
       aF -= TUNING.dragQuad * vF * Math.abs(vF);
-      if (effectiveDrift) aF -= TUNING.driftScrub * vF;
+      if (surfaceDrift) aF -= TUNING.driftScrub * vF;
       vF += aF * dt;
+      if (flightWasActive) vF = Math.min(vF, TUNING.flightHardCap);
+      if (surfaceReturnBrake) vF = Math.max(0, vF);
 
       // lateral hydrodynamic grip — cut while drifting (powerslide)
       const brakeGrip = TUNING.lateralGrip + (TUNING.airBrakeGrip - TUNING.lateralGrip) * this.airBrakeFx;
-      const driftCut = effectiveDrift ? TUNING.driftGripMul + (1 - TUNING.driftGripMul) * this.airBrakeFx : 1;
+      const driftCut = surfaceDrift ? TUNING.driftGripMul + (1 - TUNING.driftGripMul) * this.airBrakeFx : 1;
       const grip = brakeGrip * driftCut;
       vL *= Math.max(0, 1 - grip * dt);
     }
@@ -2661,19 +2672,21 @@ export class Boat implements IBoat {
     // reversed in reverse
     const speedAbs = Math.abs(vF);
     const steeringMul = flightWasActive ? this.handling.airControl : this.handling.steering;
-    const latGMax = (TUNING.latGMax + (TUNING.airBrakeLatG - TUNING.latGMax) * this.airBrakeFx) * steeringMul;
+    const baseLatG = surfaceDrift ? TUNING.driftLatGMax : TUNING.latGMax;
+    const latGMax = (baseLatG + (TUNING.airBrakeLatG - baseLatG) * this.airBrakeFx) * steeringMul;
     const gCap = latGMax / Math.max(speedAbs, 0.5);
     const authority = Math.min(speedAbs / TUNING.steerFullSpeed, 1) * (vF < 0 ? -1 : 1);
-    const yawTarget = -steer * Math.min(TUNING.yawRateMax * steeringMul, gCap) * authority;
+    const maxYawRate = (surfaceDrift ? TUNING.driftYawRateMax : TUNING.yawRateMax) * steeringMul;
+    const yawTarget = -steer * Math.min(maxYawRate, gCap) * authority;
     const baseYawDamp = TUNING.yawDamp + (TUNING.airBrakeYawDamp - TUNING.yawDamp) * this.airBrakeFx;
-    const driftYawCut = effectiveDrift ? TUNING.driftYawDampMul + (1 - TUNING.driftYawDampMul) * this.airBrakeFx : 1;
+    const driftYawCut = surfaceDrift ? TUNING.driftYawDampMul + (1 - TUNING.driftYawDampMul) * this.airBrakeFx : 1;
     const yawDamp = baseYawDamp * driftYawCut;
     this.yawRate += (yawTarget - this.yawRate) * Math.min(1, yawDamp * dt);
     this.heading = wrapAngle(this.heading + this.yawRate * dt);
     this.lateralG = vF * this.yawRate; // + = turning left
 
     // drift charge / boost payout on release
-    if (effectiveDrift && !flightWasActive) {
+    if (surfaceDrift) {
       if (speedAbs > TUNING.driftMinSpeed) {
         st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
       }
@@ -2688,16 +2701,14 @@ export class Boat implements IBoat {
       }
       st.boostCharge = 0;
     }
-    this.wasDrifting = effectiveDrift;
+    this.wasDrifting = surfaceDrift;
     boosting = this.boostTimer > 0;
 
     // Process the trigger after drift payout so releasing Shift and pressing Space
     // on the same simulation frame is a valid combo.
-    // On the water surface, pressing Space ALWAYS launches the glider (spending a charge
-    // if available, or catching a free sea-breeze launch if charges are 0).
     if (input.flightTrigger) {
-      if (st.flightPhase === 'surface') {
-        if (st.flightCharges > 0) st.flightCharges--;
+      if (st.flightCharges > 0 && st.flightPhase === 'surface') {
+        st.flightCharges--;
         st.flightPhase = 'spool';
         st.flightRouteState = 'idle';
         st.flightRouteIndex = -1;
@@ -2720,57 +2731,11 @@ export class Boat implements IBoat {
         st.flightExtensionReady = false;
         st.flightExtended = true;
         // Arrest a late descent without snapping the hull upward.
-        this.vy = Math.max(this.vy, 2.5);
+        this.vy = Math.max(this.vy, -1);
         this.flightTargetVy = Math.max(this.flightTargetVy, 0);
         this.liftBurstTimer = Math.max(this.liftBurstTimer, 0.22);
       } else {
         st.flightDenied = true;
-      }
-    }
-
-    // ---- Aerodynamic Sky-Stream & Waterway Channel Assist (Player Comfort & Flow) ----
-    if (this.id === 0 && this.course && speedAbs > 3.5) {
-      const activeRoute = this.course.routeForBoat(this.id);
-      this.course.sample(pos, _guideSample, activeRoute);
-      const tx = _guideSample.tangent.x;
-      const tz = _guideSample.tangent.z;
-      const toCenterX = _guideSample.point.x - pos.x;
-      const toCenterZ = _guideSample.point.z - pos.z;
-      const dist = _guideSample.distance;
-
-      if (st.flightPhase !== 'surface' && activeRoute !== 'surface') {
-        // In-flight sky-stream alignment: gently guide heading & lateral path toward the active flight route
-        const lookLead = Math.max(8, speedAbs * 0.28);
-        const aimX = toCenterX + tx * lookLead;
-        const aimZ = toCenterZ + tz * lookLead;
-        const desiredHeading = Math.atan2(aimX, aimZ);
-        const headingErr = wrapAngle(desiredHeading - this.heading);
-        const steerOverride = 1.0 - Math.min(0.65, Math.abs(steer) * 0.65);
-        const alignRate = (2.6 + clamp(dist / 6.0, 0, 2.4)) * steerOverride;
-        this.heading = wrapAngle(this.heading + clamp(headingErr, -0.8, 0.8) * Math.min(1, alignRate * dt));
-        // Gentle lateral centering stream so the glider stays comfortably inside the sky corridor
-        if (dist > 1.2) {
-          const pull = clamp((dist - 1.2) * 2.2, 0, 14) * steerOverride;
-          const invD = 1 / Math.max(0.1, dist);
-          this.velX += toCenterX * invD * pull * dt;
-          this.velZ += toCenterZ * invD * pull * dt;
-        }
-      } else if (st.flightPhase === 'surface' && dist > 11.0) {
-        // Surface waterway channel current: prevent spinning out or getting lost off-course
-        const lookLead = Math.max(12, speedAbs * 0.42);
-        const aimX = toCenterX + tx * lookLead;
-        const aimZ = toCenterZ + tz * lookLead;
-        const desiredHeading = Math.atan2(aimX, aimZ);
-        const headingErr = wrapAngle(desiredHeading - this.heading);
-        const offFactor = clamp((dist - 11.0) / 16.0, 0, 1);
-        const alignRate = (1.8 + offFactor * 3.8) * (dist > 24.0 ? 1.0 : 1.0 - Math.abs(steer) * 0.45);
-        this.heading = wrapAngle(this.heading + clamp(headingErr, -1.1, 1.1) * Math.min(1, alignRate * dt));
-        if (dist > 16.0) {
-          const pull = clamp((dist - 16.0) * 1.8, 0, 16);
-          const invD = 1 / Math.max(0.1, dist);
-          this.velX += toCenterX * invD * pull * dt;
-          this.velZ += toCenterZ * invD * pull * dt;
-        }
       }
     }
 
@@ -2791,20 +2756,8 @@ export class Boat implements IBoat {
 
     st.landImpulse = 0; // only landing frames report an impact
     if (st.flightPhase !== 'surface') {
-      vF = this.updateFlight(dt, surfaceY, targetY, thr, vF, input, surfaceReturnBrake);
-      this.velX = fwdX * vF + portX * vL;
-      this.velZ = fwdZ * vF + portZ * vL;
+      this.updateFlight(dt, surfaceY, targetY);
     } else if (st.airborne) {
-      const thermalSample = this.course?.sampleThermalUpdraft(pos);
-      if (thermalSample && thermalSample.intensity > 0.01) {
-        this.thermalUpdraft += (thermalSample.intensity - this.thermalUpdraft) * (1 - Math.exp(-12 * dt));
-        this.vy += this.thermalUpdraft * Math.max(0, thermalSample.liftSpeed - this.vy) * TUNING.thermalCouplingK * dt;
-      } else {
-        this.thermalUpdraft = Math.max(0, this.thermalUpdraft - dt * 3.5);
-      }
-      this.windTunnelBoost = Math.max(0, this.windTunnelBoost - dt * 2.8);
-      st.thermalUpdraft = this.thermalUpdraft;
-      st.windTunnelBoost = this.windTunnelBoost;
       this.vy -= TUNING.gravity * dt;
       pos.y += this.vy * dt;
       st.airTime += dt;
@@ -2823,22 +2776,8 @@ export class Boat implements IBoat {
           this.spray.burst(_v1, n, 2 + impact * 0.6);
         }
         this.wake.push(_v1, fwdX, fwdZ, 1); // slam push
-
-        // Air-brake to Drift Landing Handoff (空中刹车/漂移落地触水无缝切入水面漂移)
-        const brakingIntoLand = input.airBrake || this.airBrakeFx > 0.08 || input.drift;
-        if (brakingIntoLand && !surfaceReturnBrake) {
-          this.wasDrifting = true;
-          st.drifting = true;
-          if (speedAbs > TUNING.driftMinSpeed) {
-            st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
-          }
-        }
       }
     } else {
-      this.thermalUpdraft = Math.max(0, this.thermalUpdraft - dt * 4.0);
-      this.windTunnelBoost = Math.max(0, this.windTunnelBoost - dt * 3.0);
-      st.thermalUpdraft = this.thermalUpdraft;
-      st.windTunnelBoost = this.windTunnelBoost;
       // Water can only push, never pull: downward accel clamps at −g, so brief
       // unloads become free-fall micro-skips that KEEP thrust and grip. The
       // airborne flag latches only after a sustained unload (dwell) — i.e. a
@@ -2855,6 +2794,21 @@ export class Boat implements IBoat {
         }
       } else {
         this.unloadTime = 0;
+      }
+    }
+
+    // Input is sampled before the vertical integrator discovers water contact.
+    // Hand a held air-brake to surface drift on that exact fixed step so the
+    // player never has to release and press Shift again after a normal flight.
+    // Final keeps air-brake ownership and is intentionally excluded.
+    if (flightWasActive && st.flightPhase === 'surface' && !surfaceReturnBrake) {
+      this.airBrakeFx = 0;
+      if (input.airBrake) {
+        surfaceDrift = true;
+        if (speedAbs > TUNING.driftMinSpeed) {
+          st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
+        }
+        this.wasDrifting = true;
       }
     }
 
@@ -2884,11 +2838,11 @@ export class Boat implements IBoat {
       pitchT *= TUNING.airTiltKeep;
       rollT *= TUNING.airTiltKeep;
     } else if (st.flightPhase !== 'surface') {
-      pitchT = this.aeroPitch;
+      pitchT *= 0.2;
       rollT = -clamp(this.lateralG / TUNING.latGMax, -1.2, 1.2) * TUNING.bankMax * 1.35;
     }
 
-    const w = st.flightPhase !== 'surface' ? 12 : TUNING.tiltOmega; // critically damped: ζ = 1
+    const w = TUNING.tiltOmega; // critically damped: ζ = 1
     this.pitchVel += (w * w * (pitchT - this.pitch) - 2 * w * this.pitchVel) * dt;
     this.pitch += this.pitchVel * dt;
     this.rollVel += (w * w * (rollT - this.roll) - 2 * w * this.rollVel) * dt;
@@ -2976,7 +2930,7 @@ export class Boat implements IBoat {
 
     this.driftTrailCd -= dt;
     this.opponentDriftSprayCd -= dt;
-    if (effectiveDrift && st.boostCharge > 0.04 && speedAbs > TUNING.driftMinSpeed && this.driftTrailCd <= 0) {
+    if (surfaceDrift && st.boostCharge > 0.04 && speedAbs > TUNING.driftMinSpeed && this.driftTrailCd <= 0) {
       const opponent = this.id > 0;
       this.driftTrailCd = opponent ? 0.052 / this.opponentFxScale : 0.05;
       const side = Math.abs(this.lateralG) > 0.5 ? (this.lateralG > 0 ? -1 : 1) : (steer >= 0 ? 1 : -1);
@@ -3002,7 +2956,7 @@ export class Boat implements IBoat {
     // Opponent technique must be readable in the world, not through another
     // HUD badge. Two short stern sprays mark a real drift input, with a simple
     // distance LOD to avoid filling the horizon when the field spreads out.
-    if (this.id > 0 && effectiveDrift && !st.airborne && st.flightPhase === 'surface' &&
+    if (this.id > 0 && surfaceDrift && !st.airborne && st.flightPhase === 'surface' &&
         speedAbs > TUNING.driftMinSpeed && this.opponentDriftSprayCd <= 0) {
       this.opponentDriftSprayCd = 0.075 / this.opponentFxScale;
       for (const streamSide of [-1, 1]) {
@@ -3019,128 +2973,12 @@ export class Boat implements IBoat {
     this.updateThrustVisual(dt, t, boosting, st.flightThrust, fwdX, fwdZ, portX, portZ);
     this.updateWingAndRotorVisual(dt, t, flightWasActive, vF, steer);
 
-    // ---- surface ground effect update ----
-    if (!flightWasActive) {
-      const clearance = pos.y - surfaceY;
-      let groundSigma = 0;
-      if (clearance >= TUNING.groundEffectMinAlt && clearance <= TUNING.groundEffectMaxAlt) {
-        if (clearance >= TUNING.groundEffectPeakAltHi) {
-          const tPos = (TUNING.groundEffectMaxAlt - clearance) / (TUNING.groundEffectMaxAlt - TUNING.groundEffectPeakAltHi);
-          groundSigma = tPos * tPos * (3 - 2 * tPos);
-        } else if (clearance >= TUNING.groundEffectPeakAltLo) {
-          groundSigma = 1.0;
-        } else {
-          const tPos = (clearance - TUNING.groundEffectMinAlt) / (TUNING.groundEffectPeakAltLo - TUNING.groundEffectMinAlt);
-          groundSigma = tPos * tPos * (3 - 2 * tPos);
-        }
-      }
-      this.groundEffect = groundSigma;
-      st.groundEffect = groundSigma;
-      this.groundResonance = 0;
-      st.groundResonance = 0;
-      if (st.flightCharges < 2 && speedAbs > 10) {
-        this.groundResonanceCharge = Math.min(1.0, this.groundResonanceCharge + dt * 0.28);
-        if (this.groundResonanceCharge >= 1.0) {
-          st.flightCharges = Math.min(2, st.flightCharges + 1);
-          this.liftBurstTimer = 0.22;
-          this.groundResonanceCharge = 0;
-        }
-      } else {
-        this.groundResonanceCharge = Math.max(0, this.groundResonanceCharge - dt * 0.5);
-      }
-      st.groundResonanceCharge = this.groundResonanceCharge;
-    }
-
-    // ---- ground effect surface wind vortex streamlines & resonance sparkles ----
-    if (this.groundEffect > 0.15 && speedAbs > 14) {
-      this.groundTrailCd -= dt;
-      if (this.groundTrailCd <= 0) {
-        const opponent = this.id > 0;
-        this.groundTrailCd = TUNING.groundEffectTrailPeriod / this.opponentFxScale;
-        const tipSpan = 1.85;
-        const waterY = surfaceY + 0.05;
-        const streamSpeed = 0.32 * vF;
-        // Port wingtip ground vortex
-        this.trail.emit(
-          pos.x + portX * tipSpan - fwdX * 0.15,
-          waterY,
-          pos.z + portZ * tipSpan - fwdZ * 0.15,
-          -fwdX * streamSpeed + portX * 1.6,
-          0.12,
-          -fwdZ * streamSpeed + portZ * 1.6,
-          0xffffff,
-          (opponent ? 0.22 : 0.16) + this.groundEffect * 0.08,
-          0.36,
-        );
-        // Starboard wingtip ground vortex
-        this.trail.emit(
-          pos.x - portX * tipSpan - fwdX * 0.15,
-          waterY,
-          pos.z - portZ * tipSpan - fwdZ * 0.15,
-          -fwdX * streamSpeed - portX * 1.6,
-          0.12,
-          -fwdZ * streamSpeed - portZ * 1.6,
-          0xffffff,
-          (opponent ? 0.22 : 0.16) + this.groundEffect * 0.08,
-          0.36,
-        );
-        // Resonant sunlit sparkle motes when in active resonance
-        if (this.groundResonance > 0.35 && !opponent) {
-          this.trail.emit(
-            pos.x - fwdX * 0.4,
-            waterY + 0.04,
-            pos.z - fwdZ * 0.4,
-            -fwdX * 0.4,
-            0.35,
-            -fwdZ * 0.4,
-            PALETTE.sun,
-            0.12 + this.groundResonance * 0.06,
-            0.32,
-          );
-        }
-      }
-    } else {
-      this.groundTrailCd = 0;
-    }
-
-    // ---- thermal updraft sun motes & wind tunnel jet streamlines ----
-    if (this.thermalUpdraft > 0.2 && this.id === 0) {
-      this.trail.emit(
-        pos.x + portX * (Math.sin(t * 19) * 1.5) - fwdX * 0.4,
-        pos.y + 0.35,
-        pos.z + portZ * (Math.sin(t * 19) * 1.5) - fwdZ * 0.4,
-        -fwdX * 0.3,
-        1.5 + this.thermalUpdraft * 1.8,
-        -fwdZ * 0.3,
-        PALETTE.sun,
-        0.16 + this.thermalUpdraft * 0.1,
-        0.42,
-      );
-    }
-    if (this.windTunnelBoost > 0.25) {
-      const tipSpan = 2.1;
-      for (const side of [-1, 1]) {
-        this.trail.emit(
-          pos.x + portX * tipSpan * side - fwdX * 0.25,
-          pos.y + 0.12,
-          pos.z + portZ * tipSpan * side - fwdZ * 0.25,
-          -fwdX * (1.5 + this.windTunnelBoost * 2.8),
-          0.05,
-          -fwdZ * (1.5 + this.windTunnelBoost * 2.8),
-          0xffffff,
-          0.18 + this.windTunnelBoost * 0.12,
-          0.36,
-        );
-      }
-    }
-
     // ---- state ----
     st.speed = vF;
     st.throttle = thr;
     st.steer = steer;
-    const currentDrift = (input.drift || (st.flightPhase === 'surface' && input.airBrake && !surfaceReturnBrake)) && st.flightPhase === 'surface';
-    st.drifting = currentDrift || this.wasDrifting;
-    st.driftReleaseReady = st.drifting && st.flightPhase === 'surface' &&
+    st.drifting = surfaceDrift;
+    st.driftReleaseReady = surfaceDrift && st.flightPhase === 'surface' &&
       speedAbs > TUNING.driftMinSpeed && st.boostCharge >= TUNING.boostReleaseMin;
     st.boosting = boosting;
     st.boostRemaining = boosting && this.boostTotal > 0 ? clamp(this.boostTimer / this.boostTotal, 0, 1) : 0;
@@ -3690,11 +3528,7 @@ export class Boat implements IBoat {
     dt: number,
     surfaceY: number,
     surfaceTargetY: number,
-    thr: number,
-    vF: number,
-    input: BoatInput,
-    surfaceReturnBrake: boolean,
-  ): number {
+  ): void {
     const st = this.state;
     const ascendAt = TUNING.flightSpool;
     const cruiseAt = ascendAt + TUNING.flightAscend;
@@ -3734,189 +3568,36 @@ export class Boat implements IBoat {
       thrust = 0.72 * (1 - p);
     }
 
-    // Pilot pitch control & AoA aerodynamics
-    // Cruising trims to streamlined neutral glide trim (-0.035 rad, ~-2 deg nose down)
-    // Air brake engagement flares nose up (+0.14 rad) for vector braking and aerodynamic deceleration
-    let targetPitch = phase === 'descending'
-      ? -0.06 + this.airBrakeFx * 0.12
-      : TUNING.neutralPitchTrim + this.airBrakeFx * 0.16;
-
-    // Ground effect proximity factor (Task 8.2 & Task 12.2: 翼地效应 1~3米浮力与气垫增益)
-    const clearance = this.object.position.y - surfaceY;
-    let groundSigma = 0;
-    if (clearance >= TUNING.groundEffectMinAlt && clearance <= TUNING.groundEffectMaxAlt) {
-      if (clearance >= TUNING.groundEffectPeakAltHi) {
-        const t = (TUNING.groundEffectMaxAlt - clearance) / (TUNING.groundEffectMaxAlt - TUNING.groundEffectPeakAltHi);
-        groundSigma = t * t * (3 - 2 * t);
-      } else if (clearance >= TUNING.groundEffectPeakAltLo) {
-        groundSigma = 1.0;
-      } else {
-        const t = (clearance - TUNING.groundEffectMinAlt) / (TUNING.groundEffectPeakAltLo - TUNING.groundEffectMinAlt);
-        groundSigma = t * t * (3 - 2 * t);
-      }
-    }
-    this.groundEffect = groundSigma;
-    st.groundEffect = groundSigma;
-
-    // Ground Auto-Level protection (防倒栽葱砸水：接近水面/地面 Y < 3m 时平缓拉平机头)
-    if (clearance < TUNING.groundAutoLevelAlt) {
-      const groundProximity = clamp((TUNING.groundAutoLevelAlt - clearance) / 2.5, 0, 1);
-      const autoLevelWeight = smooth01(groundProximity);
-      const flarePitch = TUNING.groundAutoLevelFlare + this.airBrakeFx * 0.14;
-      if (targetPitch < flarePitch || this.vy < 0) {
-        targetPitch = targetPitch * (1 - autoLevelWeight) + flarePitch * autoLevelWeight;
-      }
-      const pitchRate = TUNING.pitchControlRate + autoLevelWeight * 6.0;
-      this.aeroPitch += (targetPitch - this.aeroPitch) * (1 - Math.exp(-pitchRate * dt));
-    } else {
-      this.aeroPitch += (targetPitch - this.aeroPitch) * (1 - Math.exp(-TUNING.pitchControlRate * dt));
-    }
-
-    const totalAirSpeed = Math.hypot(vF, this.vy);
-    const safeAirSpeed = Math.max(2.0, totalAirSpeed);
-    const gamma = Math.atan2(this.vy, Math.max(1.0, vF)); // Flight path trajectory angle
-    const cosG = Math.cos(gamma);
-    const sinG = Math.sin(gamma);
-    const alpha = this.aeroPitch - gamma; // Angle of attack (迎角)
-
-    // Lift coefficient (cambered airfoil + linear slope + smooth post-stall dropoff + ground effect cushion)
-    let cL: number;
-    const absAlpha = Math.abs(alpha);
-    if (absAlpha <= TUNING.stallAngle) {
-      cL = TUNING.liftCoeff0 + TUNING.liftSlope * alpha;
-    } else {
-      const peakCl = TUNING.liftCoeff0 + TUNING.liftSlope * Math.sign(alpha) * TUNING.stallAngle;
-      const stallFade = Math.exp(-7.0 * (absAlpha - TUNING.stallAngle));
-      cL = peakCl * (TUNING.stallLiftDrop + (1 - TUNING.stallLiftDrop) * stallFade);
-    }
-    cL *= (1.0 + TUNING.groundEffectLiftMul * groundSigma);
-
-    // Drag coefficient (parasitic + induced + air-brake + separation drag, with ground effect + wind tunnel vortex suppression)
-    const cDi = TUNING.inducedDragK * cL * cL;
-    const cDiGround = cDi * (1.0 - TUNING.groundEffectDragCut * groundSigma)
-      * (1.0 - TUNING.windTunnelDragCut * this.windTunnelBoost);
-    const cDBrake = TUNING.airBrakeDragCoeff * this.airBrakeFx;
-    const cDStall = absAlpha > TUNING.stallAngle
-      ? 0.18 * (1 - Math.exp(-5.0 * (absAlpha - TUNING.stallAngle)))
-      : 0;
-    const cD = TUNING.dragCoeff0 + cDiGround + cDBrake + cDStall;
-
-    // Aerodynamic forces per unit mass: Qm = 0.5 * rho * V^2 * (S / m)
-    const qm = 0.5 * TUNING.airDensity * safeAirSpeed * safeAirSpeed * (TUNING.wingArea / TUNING.gliderMass);
-    const aLift = qm * cL;
-    const aDrag = qm * cD;
-
-    // Forward longitudinal acceleration from aerodynamics + propulsion + ground effect speed efficiency
-    const cruiseTarget = phase === 'descending'
-      ? TUNING.flightDescentSpeed
-      : this.flightTargetSpeed;
-    const speedTarget = cruiseTarget + (TUNING.airBrakeTargetSpeed - cruiseTarget) * this.airBrakeFx;
-    const speedError = speedTarget - vF;
-    const propThrustF = clamp(speedError * 2.2, -14, 18) * this.handling.acceleration;
-    // Aerodynamic gravity conversion & ground-effect forward acceleration
-    const aFGe = 3.6 * groundSigma * clamp(vF / 25, 0.4, 1.25);
-    const aF = -aDrag * cosG - aLift * sinG + propThrustF + aFGe;
-
-    // Proximity resonance charging (贴海掠行充能)
-    const speedAbs = Math.abs(vF);
-    let resonance = 0;
-    if (groundSigma > 0.15 && speedAbs > TUNING.groundResonanceSpeedMin && phase !== 'descending') {
-      resonance = groundSigma * clamp((speedAbs - 18) / 16, 0.0, 1.0);
-    }
-    this.groundResonance = resonance;
-    st.groundResonance = resonance;
-
-    if (resonance > 0.15) {
-      this.groundResonanceCharge = Math.min(1.0, this.groundResonanceCharge + dt * resonance * TUNING.groundResonanceRate);
-      if (this.groundResonanceCharge >= 1.0) {
-        if (st.flightCharges < 2) {
-          st.flightCharges++;
-          this.liftBurstTimer = 0.24;
-        }
-        this.groundResonanceCharge = 0;
-      }
-      if (st.boostCharge < 1.0) {
-        st.boostCharge = Math.min(1.0, st.boostCharge + dt * resonance * 0.35);
-      }
-    } else if (resonance <= 0.05) {
-      this.groundResonanceCharge = Math.max(0, this.groundResonanceCharge - dt * 0.4);
-    }
-    st.groundResonanceCharge = this.groundResonanceCharge;
-
-    // Thermal updraft vertical lift & flight duration preservation (Task 8.3)
-    const pos = this.object.position;
-    const thermalSample = this.course?.sampleThermalUpdraft(pos);
-    if (thermalSample && thermalSample.intensity > 0.01) {
-      this.thermalUpdraft += (thermalSample.intensity - this.thermalUpdraft) * (1 - Math.exp(-12 * dt));
-      // Vertical lift: pull vy toward thermal liftSpeed
-      this.vy += this.thermalUpdraft * Math.max(0, thermalSample.liftSpeed - this.vy) * TUNING.thermalCouplingK * dt;
-      // Preserve flight duration inside thermals (slow elapsed timer)
-      if (phase !== 'descending') {
-        this.flightElapsed -= dt * this.thermalUpdraft * TUNING.thermalExtendRate;
-        this.flightElapsed = Math.max(0, this.flightElapsed);
-      }
-    } else {
-      this.thermalUpdraft = Math.max(0, this.thermalUpdraft - dt * 3.5);
-    }
-    st.thermalUpdraft = this.thermalUpdraft;
-
-    // Wind tunnel slingshot boost & induced drag reduction (Task 8.3)
-    const tunnelSample = this.course?.sampleWindTunnel(pos, this.prevPosForTunnel);
-    if (tunnelSample) {
-      this.windTunnelBoost += (tunnelSample.inside - this.windTunnelBoost) * (1 - Math.exp(-8 * dt));
-      if (tunnelSample.ringPassed) {
-        // Slingshot forward velocity boost on ring crossing
-        const boostTarget = vF * TUNING.windTunnelBoostMul;
-        vF += clamp(boostTarget - vF, 0, 18) * 0.55;
-        this.liftBurstTimer = Math.max(this.liftBurstTimer, 0.18);
-      }
-    } else {
-      this.windTunnelBoost = Math.max(0, this.windTunnelBoost - dt * 2.8);
-    }
-    st.windTunnelBoost = this.windTunnelBoost;
-
-    // Vertical tracking with wave feedforward + aerodynamic pitch authority + air cushion
     const desiredY = surfaceY + targetClearance;
     if (firstFlightFrame) this.flightDesiredYPrev = desiredY;
-    const rawTargetVy = clamp((desiredY - this.flightDesiredYPrev) / Math.max(1e-4, dt), -14, 14);
+    const rawTargetVy = clamp((desiredY - this.flightDesiredYPrev) / Math.max(1e-4, dt), -24, 24);
     this.flightTargetVy += (rawTargetVy - this.flightTargetVy) * (1 - Math.exp(-18 * dt));
     this.flightDesiredYPrev = desiredY;
-
     const w = TUNING.flightOmega;
-    const aY = clamp(
+    const ay = clamp(
       w * w * (desiredY - this.object.position.y) + 2 * w * (this.flightTargetVy - this.vy),
       -TUNING.flightAccelMax,
       TUNING.flightAccelMax,
     );
-
-    // Integrate velocities
-    vF += aF * dt;
-    this.vy += aY * dt;
-    // Ground Air Cushion protection: when descending near surface (clearance < 3m & vy < 0)
-    if (this.vy < 0 && clearance < TUNING.groundAutoLevelAlt) {
-      const cushionIntensity = smooth01(clamp((TUNING.groundAutoLevelAlt - clearance) / 2.75, 0, 1));
-      const sinkSpeed = Math.max(0, -this.vy);
-      const dynamicLiftBoost = qm * 0.42 * cushionIntensity;
-      const sinkDamping = sinkSpeed * TUNING.groundCushionSinkDamp * cushionIntensity;
-      const aCushion = (TUNING.groundEffectCushionK * cushionIntensity + dynamicLiftBoost + sinkDamping) * Math.max(0.2, groundSigma);
-      this.vy += aCushion * dt;
-    }
-    vF = clamp(vF, -TUNING.reverseSpeed, TUNING.diveSpeedCap);
-    this.vy = clamp(this.vy, -22, 18);
-
+    this.vy += ay * dt;
     this.object.position.y += this.vy * dt;
     st.flightPhase = phase;
-    st.flightRemaining = clamp(1 - this.flightElapsed / total, 0, 1);
+    st.flightRemaining = clamp(1 - this.flightElapsed / Math.max(1e-4, descendAt), 0, 1);
     st.flightThrust = thrust;
     st.airborne = false;
     st.airTime = 0;
 
+    if (phase === 'descending' && this.object.position.y <= surfaceTargetY) {
+      const impact = Math.max(0, -this.vy);
+      st.landImpulse = Math.max(st.landImpulse, impact);
+      this.object.position.y = surfaceTargetY;
+      this.vy = 0;
+    }
+
     const landingTimedOut = this.flightElapsed >= total + 0.3;
     const touchingWater = this.object.position.y <= surfaceTargetY + 0.25;
-    if ((this.flightElapsed >= total && (touchingWater || landingTimedOut)) ||
-        (phase === 'descending' && this.object.position.y <= surfaceTargetY + 0.1)) {
+    if (this.flightElapsed >= total && (touchingWater || landingTimedOut)) {
       this.object.position.y = surfaceTargetY;
-      const landingImpact = Math.max(0, -this.vy);
       this.vy = 0;
       this.unloadTime = 0;
       this.flightElapsed = 0;
@@ -3928,31 +3609,7 @@ export class Boat implements IBoat {
       st.flightExtensionReady = false;
       st.flightExtensionUsed = false;
       st.flightThrust = 0;
-      st.landImpulse = Math.max(st.landImpulse, landingImpact);
-
-      // Air-brake to Drift Landing Handoff (空中刹车落地无缝切入切水漂移)
-      const brakingIntoLand = input.airBrake || this.airBrakeFx > 0.08 || input.drift;
-      if (brakingIntoLand && !surfaceReturnBrake) {
-        this.wasDrifting = true;
-        st.drifting = true;
-        if (Math.abs(vF) > TUNING.driftMinSpeed) {
-          st.boostCharge = Math.min(1, st.boostCharge + dt * this.handling.driftCharge / TUNING.driftChargeTime);
-        }
-        const fwdX = Math.sin(this.heading);
-        const fwdZ = Math.cos(this.heading);
-        const portX = fwdZ;
-        const portZ = -fwdX;
-        const W = TUNING.sampleLat;
-        _v1.set(this.object.position.x - fwdX * 2.1, surfaceY + 0.06, this.object.position.z - fwdZ * 2.1);
-        this.spray.burst(_v1, this.id === 0 ? 16 : 8, 4.2 + Math.abs(vF) * 0.15);
-        _v2.set(this.object.position.x + portX * (W + 0.15) - fwdX * 0.8, surfaceY + 0.06, this.object.position.z + portZ * (W + 0.15) - fwdZ * 0.8);
-        _v3.set(this.object.position.x - portX * (W + 0.15) - fwdX * 0.8, surfaceY + 0.06, this.object.position.z - portZ * (W + 0.15) - fwdZ * 0.8);
-        this.spray.burst(_v2, this.id === 0 ? 8 : 4, 3.2 + Math.abs(vF) * 0.1);
-        this.spray.burst(_v3, this.id === 0 ? 8 : 4, 3.2 + Math.abs(vF) * 0.1);
-      }
     }
-
-    return vF;
   }
 
   teleport(x: number, z: number, heading: number): void {
@@ -4018,7 +3675,7 @@ export class Boat implements IBoat {
     st.driftBankProgress = 0;
     st.driftReleaseReady = false;
     st.boostRemaining = 0;
-    st.flightCharges = this.id === 0 ? 2 : 1;
+    st.flightCharges = 0;
     st.flightPhase = 'surface';
     st.flightRemaining = 0;
     st.flightExtensionReady = false;

@@ -3431,16 +3431,22 @@ export class Course implements ICourse {
       if (id === 0) this.playerSurfaceU = surfaceU;
       const flightActive = st.flightPhase !== 'surface';
       if (id === 0 && !this.finalArmed && !flightActive &&
-          st.flightRouteCursor % FLIGHT_ROUTES.length === 4) {
-        const action = FLIGHT_ROUTES[4].navigation?.action;
-        if (action && surfaceU >= FLIGHT_ROUTES[3].gateUs[0] - 0.004 &&
-            surfaceU <= FLIGHT_ROUTES[4].launchToU) {
-          this.playerActionCue = st.flightCharges > 0 ? 'launch' : 'bank';
-          this.playerActionRouteIndex = 4;
-          this.playerActionTargetU = st.flightCharges > 0
-            ? (action.launchFromU + action.launchToU) * 0.5
-            : (action.bankFromU + action.bankToU) * 0.5;
-          this.playerActionMarkerCount = st.flightCharges > 0 ? 2 : 3;
+          (st.flightRouteState === 'idle' || st.flightRouteState === 'passed')) {
+        const launchRouteIndex = st.flightRouteCursor % FLIGHT_ROUTES.length;
+        const launchRoute = FLIGHT_ROUTES[launchRouteIndex];
+        const surfaceS = surfaceU * LAP_LENGTH;
+        const launchCueU = launchRoute.navigation?.action
+          ? (launchRoute.navigation.action.launchFromU + launchRoute.navigation.action.launchToU) * 0.5
+          : (launchRoute.launchFromU + launchRoute.launchToU) * 0.5;
+        const launchS = launchCueU * LAP_LENGTH;
+        const launchDistance = (launchS - surfaceS + LAP_LENGTH) % LAP_LENGTH;
+        if (launchDistance <= 220) {
+          const armed = st.flightCharges > 0;
+          this.playerActionCue = armed ? 'launch' : 'bank';
+          this.playerActionRouteIndex = launchRouteIndex;
+          this.playerActionDirection = launchRoute.navigation?.turn?.direction ?? 'none';
+          this.playerActionTargetU = launchCueU;
+          this.playerActionMarkerCount = armed ? 2 : 3;
         }
       }
       if (id === 0 && this.finalArmed && st.flightsCleared >= FLIGHT_ROUTES.length &&
@@ -3547,20 +3553,7 @@ export class Course implements ICourse {
 
       const insideAttemptSpan = surfaceU >= def.entryU - FLIGHT_ATTEMPT_EARLY_U && surfaceU <= def.exitU + 0.008;
       const crossedChallengeEntry = surfaceU >= def.entryU - 0.002;
-      // Wind-stream updraft auto-launch for player so missing the Spacebar window never kills the flow
-      if (id === 0 && !flightActive && st.flightRouteState === 'idle' &&
-          surfaceU >= def.launchFromU && surfaceU <= def.entryU + 0.014 &&
-          _routeSample.distance <= 24) {
-        st.flightClearance = Math.max(st.flightClearance, 0.35);
-        boat.beginFlightRouteAttempt(routeIndex, st.flightRouteCursor, def.targetSpeed);
-        this.flightDebug[id] = 'active';
-        this.flightLatched[id] = routeIndex;
-        this.flightOffCorridorT[id] = 0;
-        this.flightOffCorridorD[id] = 0;
-      }
-
-      const nowFlightActive = st.flightPhase !== 'surface';
-      if (nowFlightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
+      if (flightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
           (near.distance <= def.corridorHalfWidth || crossedChallengeEntry)) {
         boat.beginFlightRouteAttempt(routeIndex, st.flightRouteCursor, def.targetSpeed);
         this.flightDebug[id] = 'active';
@@ -3572,7 +3565,7 @@ export class Course implements ICourse {
         }
       }
 
-      if (!nowFlightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
+      if (!flightActive && st.flightRouteState === 'idle' && insideAttemptSpan &&
           _routeSample.distance < SURFACE_ROUTE_FAIL_DISTANCE_M &&
           surfaceU >= def.gateUs[0] - FLIGHT_GATE_BYPASS_U) {
         boat.beginFlightRouteAttempt(routeIndex, st.flightRouteCursor, def.targetSpeed);
@@ -3584,7 +3577,7 @@ export class Course implements ICourse {
         this.flightLatched[id] = routeIndex;
         const gateIndex = st.flightGateProgress;
         const gate = visual.gates[gateIndex];
-        if (gate && nowFlightActive) {
+        if (gate && flightActive) {
           const d0 = (prev.x - gate.center.x) * gate.normal.x + (prev.z - gate.center.z) * gate.normal.z;
           const d1 = (pos.x - gate.center.x) * gate.normal.x + (pos.z - gate.center.z) * gate.normal.z;
           if (d0 <= 0 && d1 > 0) {
@@ -3644,7 +3637,7 @@ export class Course implements ICourse {
       }
 
       if (st.flightRouteState === 'active') {
-        if (!nowFlightActive) {
+        if (!flightActive) {
           this.flightDebug[id] = `landing:g${st.flightGateProgress}`;
           this.failFlight(boat, visual, 'landing', near.u, null);
         } else {

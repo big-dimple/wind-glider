@@ -57,11 +57,11 @@ const WRONG_WAY_HEADING_DOT = -0.3;
 const WRONG_WAY_HOLD = 0.7; // s sustained before the flag sets
 /** Surface warnings begin here; abandoning the circuit beyond the hard edge ends the run. */
 const OFF_COURSE_WARN_M = 24;
-const OFF_COURSE_FAIL_HOLD_S = 0.8;
+const OFF_COURSE_FAIL_HOLD_S = 15;
 /** Fixed-step surface motion above this is an explicit staging cut, not a route-projection jump. */
 const SURFACE_CONTINUITY_MAX_STEP_M = 4;
 /** A wrong-way banner is corrective; ignoring it for this long is terminal. */
-const WRONG_WAY_FAIL_HOLD_S = 2.4;
+const WRONG_WAY_FAIL_HOLD_S = 15;
 const BATTLE_ARM_M = 0.75;
 const BATTLE_CROSS_M = 0.25;
 const BATTLE_MIN_REL_SPEED = 0.5;
@@ -533,13 +533,19 @@ export class Race implements RaceView {
             this.wrongT[id] += dt;
             if (this.wrongT[id] >= WRONG_WAY_HOLD) this.setCourseWarning(r, 'wrong_way');
           } else {
-            this.wrongT[id] = 0;
-            if (!offCourse || id !== this.boats[0].id) this.setCourseWarning(r, 'none');
+            this.wrongT[id] = Math.max(0, this.wrongT[id] - dt * 2.5);
+            if (this.wrongT[id] < WRONG_WAY_HOLD && r.courseWarning === 'wrong_way') {
+              this.setCourseWarning(r, offCourse && id === this.boats[0].id ? 'off_course' : 'none');
+            }
           }
-          // Never terminate the player's race for drifting wide or turning sharply;
-          // keep the warning active while the channel current guides them back.
-          void OFF_COURSE_FAIL_HOLD_S;
-          void WRONG_WAY_FAIL_HOLD_S;
+          if (id === this.boats[0].id && this.offCourseT[id] >= OFF_COURSE_FAIL_HOLD_S) {
+            this.defeatSurface('off_course', _sample.distance);
+            return;
+          }
+          if (id === this.boats[0].id && this.wrongT[id] >= WRONG_WAY_FAIL_HOLD_S) {
+            this.defeatSurface('wrong_way', _sample.distance);
+            return;
+          }
         }
 
         // checkpoint gates: rising edge, in order, near the spline

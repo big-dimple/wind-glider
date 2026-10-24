@@ -16,12 +16,13 @@ const ZERO: BoatInput = {
 };
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
-const CALIBRATION_MS = 180;
+const CALIBRATION_MS = 300;
 const SENSOR_TIMEOUT_MS = 1500;
-const MIN_CALIBRATION_SAMPLES = 4;
-const JOYSTICK_MAX_RADIUS = 50;
+const MIN_CALIBRATION_SAMPLES = 6;
+/** iOS WebKit turns two taps inside this window into a page-zoom double tap. */
+const DOUBLE_TAP_WINDOW_MS = 400;
 
-/** Landscape mobile controls with floating compass joystick and opt-in tilt calibration. */
+/** Landscape mobile controls with touch steering and opt-in tilt calibration. */
 export class MobileControls {
   readonly enabled: boolean;
 
@@ -33,8 +34,6 @@ export class MobileControls {
   private readonly flightLabel: HTMLElement | null;
   private readonly flightSubLabel: HTMLElement | null;
   private readonly tiltMeter: HTMLDivElement | null;
-  private readonly joystick: HTMLDivElement | null;
-  private readonly joystickKnob: HTMLDivElement | null;
   private readonly onFirstGesture: () => void;
   private readonly activePointers = new Map<number, PointerAction>();
   private readonly buttons = new Map<PointerAction, HTMLButtonElement>();
@@ -52,13 +51,6 @@ export class MobileControls {
   private rawTilt = 0;
   private filteredTilt = 0;
   private touchSteer = 0;
-  private touchPitch = 0;
-  private joystickPointerId: number | null = null;
-  private joystickOriginX = 0;
-  private joystickOriginY = 0;
-  private joystickX = 0;
-  private joystickY = 0;
-  private joystickActive = false;
   private flightQueued = false;
   private anyPressQueued = false;
   private goQueued = false;
@@ -69,9 +61,20 @@ export class MobileControls {
   private fullscreenRequests = 0;
   private fullscreenRequestPending = false;
   private firstImmersiveGestureHandled = false;
+  private gestureSuppressions = 0;
+  private controlTapAnchorAt: number | null = null;
+  private zoomSuspectTouchId: number | null = null;
   private activitySerialValue = 0;
   private previousTiltActivity = 0;
   private finalMode = false;
+  private readonly actionStateCache: Record<string, number | string> = {};
+
+  private setCssVar(name: string, value: number): void {
+    const rounded = Math.round(clamp(value, 0, 1) * 100) / 100;
+    if (this.actionStateCache[name] === rounded) return;
+    this.actionStateCache[name] = rounded;
+    this.root?.style.setProperty(name, String(rounded));
+  }
 
   get ready(): boolean {
     return !this.enabled || this.landscape && this.activation === 'ready';
@@ -87,7 +90,7 @@ export class MobileControls {
 
   controlLabels(): { steer: string; drift: string; flight: string } {
     return {
-      steer: this.mode === 'tilt' ? '倾斜手机' : '左侧罗盘摇杆',
+      steer: this.mode === 'tilt' ? '倾斜手机' : '左侧方向区',
       drift: '右下「漂」',
       flight: '右上「飞」',
     };
@@ -105,8 +108,6 @@ export class MobileControls {
       this.flightLabel = null;
       this.flightSubLabel = null;
       this.tiltMeter = null;
-      this.joystick = null;
-      this.joystickKnob = null;
       return;
     }
 
@@ -115,32 +116,25 @@ export class MobileControls {
     root.dataset.activation = 'idle';
     root.innerHTML = `
       <div class="mobile-orientation" role="alert" aria-live="assertive">
-        <div class="mobile-rotate-icon" aria-hidden="true">↻</div>
-        <strong>请旋转至横屏</strong>
-        <span>本游戏仅支持横屏</span>
+        <div class="mobile-rotate-icon" aria-hidden="true">
+          <span class="mobile-rotate-phone"></span><span class="mobile-rotate-arrow">↻</span>
+        </div>
+        <strong>本游戏仅支持横屏</strong>
+        <span class="mobile-orientation-lead">请旋转手机，横屏后开始游戏</span>
+        <small>微信等内置浏览器若无法横屏：点右上角「···」→「在浏览器打开」</small>
       </div>
       <button class="mobile-start" type="button">开始游戏</button>
-      <button class="mobile-mode" type="button" aria-label="当前触控转向，点击切换重力">转向 · 触控</button>
-      <div class="mobile-tilt-meter" aria-hidden="true"><i></i></div>
-      <div class="mobile-joystick" aria-hidden="true">
-        <div class="mobile-joystick-base">
-          <div class="mobile-joystick-ring"></div>
-          <div class="mobile-joystick-compass-dial">
-            <span class="compass-mark n">▲</span>
-            <span class="compass-mark s">▼</span>
-            <span class="compass-mark w">◀</span>
-            <span class="compass-mark e">▶</span>
-            <div class="compass-cross"></div>
-          </div>
-          <div class="mobile-joystick-knob">
-            <div class="knob-gem"></div>
-            <div class="knob-ring"></div>
-          </div>
-        </div>
+      <button class="mobile-mode" type="button" aria-label="当前触控转向，点击切换体感转向">转向 · 触控</button>
+      <div class="mobile-tilt-meter" role="img" aria-label="体感转向：向左或向右倾斜手机，标记回中时船直行">
+        <span class="mobile-tilt-meter-title">体感转向</span>
+        <span class="mobile-tilt-meter-left">左</span>
+        <span class="mobile-tilt-meter-center">回中</span>
+        <span class="mobile-tilt-meter-right">右</span>
+        <i></i>
       </div>
       <div class="mobile-steer-zones" aria-label="触控转向">
-        <button type="button" data-mobile-action="left" aria-label="左转"><span><b>‹</b><small>LEFT</small></span></button>
-        <button type="button" data-mobile-action="right" aria-label="右转"><span><b>›</b><small>RIGHT</small></span></button>
+        <button type="button" data-mobile-action="left" aria-label="左转"><span><b aria-hidden="true"></b></span></button>
+        <button type="button" data-mobile-action="right" aria-label="右转"><span><b aria-hidden="true"></b></span></button>
       </div>
       <div class="mobile-action-zones" aria-label="动作按钮">
         <button type="button" data-mobile-action="drift" aria-label="漂移"><span><b>漂</b><small>DRIFT</small><i class="mobile-threshold" aria-hidden="true"></i></span></button>
@@ -156,8 +150,6 @@ export class MobileControls {
     this.flightLabel = root.querySelector<HTMLElement>('[data-mobile-action="flight"] b');
     this.flightSubLabel = root.querySelector<HTMLElement>('[data-mobile-action="flight"] small');
     this.tiltMeter = root.querySelector<HTMLDivElement>('.mobile-tilt-meter i');
-    this.joystick = root.querySelector<HTMLDivElement>('.mobile-joystick');
-    this.joystickKnob = root.querySelector<HTMLDivElement>('.mobile-joystick-knob');
 
     this.start?.addEventListener('click', () => {
       this.requestGo();
@@ -181,30 +173,25 @@ export class MobileControls {
       button.addEventListener('contextmenu', (event) => event.preventDefault());
     });
 
-    // Window pointermove & pointerup listeners for fluid floating joystick tracking
-    window.addEventListener('pointermove', (event) => this.updateJoystick(event), { passive: true });
-    window.addEventListener('pointerup', (event) => this.stopJoystick(event), { passive: true });
-    window.addEventListener('pointercancel', (event) => this.stopJoystick(event), { passive: true });
-
     const orientationMedia = matchMedia('(orientation: landscape)');
     orientationMedia.addEventListener?.('change', () => this.orientationChanged());
     window.addEventListener('deviceorientation', (event) => this.orientation(event), { passive: true });
     window.addEventListener('orientationchange', () => this.orientationChanged());
     screen.orientation?.addEventListener?.('change', () => this.orientationChanged());
     window.addEventListener('blur', () => this.releaseAll());
+    document.addEventListener('gesturestart', this.suppressPageGesture, { capture: true, passive: false });
+    document.addEventListener('gesturechange', this.suppressPageGesture, { capture: true, passive: false });
+    root.addEventListener('touchstart', this.suppressDoubleTapZoom, { passive: false });
+    root.addEventListener('touchend', this.suppressDoubleTapZoom, { passive: false });
+    window.addEventListener('pointerup', this.releasePointerAtWindow);
+    window.addEventListener('pointercancel', this.releasePointerAtWindow);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.releaseAll();
       else if (this.mode === 'tilt' && this.tiltAuthorized) this.startCalibration();
     });
-    window.addEventListener('pointerdown', (event) => {
+    window.addEventListener('pointerdown', () => {
       this.anyPressQueued = true;
-      this.requestImmersiveFromGesture();
-      // Allow touching anywhere in the left half to spawn the floating compass joystick
-      if (this.mode === 'touch' && this.controlPhase === 'racing' && this.activation === 'ready') {
-        if (event.clientX < window.innerWidth * 0.48 && this.joystickPointerId === null) {
-          this.startJoystick(event);
-        }
-      }
+      this.onFirstGesture();
     }, { passive: true });
   }
 
@@ -222,41 +209,28 @@ export class MobileControls {
       this.anyPressQueued = false;
       this.goQueued = false;
     } else if (phase === 'presentation') {
-      // Keep physical left/drift pointers alive across the frozen medal
-      // presentation, but never carry an edge-triggered flight or confirm.
       this.flightQueued = false;
       this.anyPressQueued = false;
       this.goQueued = false;
     } else if (!wasInteractive || phase === 'preparing') {
-      // Preparing accepts held steering/drift only. A flight edge must always
-      // originate after GO, even if the player taps the disabled side early.
       this.flightQueued = false;
     }
   }
 
   read(dt: number, flightActive: boolean): BoatInput {
     if (!this.enabled || this.controlPhase !== 'racing' || this.activation !== 'ready') return ZERO;
-
     const leftHeld = this.hasAction('left');
     const rightHeld = this.hasAction('right');
-    let touchTarget = 0;
-    if (this.joystickActive) {
-      touchTarget = this.joystickX;
-    } else if (leftHeld || rightHeld) {
-      touchTarget = leftHeld === rightHeld ? 0 : leftHeld ? -1 : 1;
-    }
-    this.touchSteer = approach(this.touchSteer, touchTarget, 10 * dt);
+    const touchTarget = leftHeld === rightHeld ? 0 : leftHeld ? -1 : 1;
+    this.touchSteer = approach(this.touchSteer, touchTarget, 16 * dt);
 
-    if (this.joystickActive) {
-      this.touchPitch = approach(this.touchPitch, this.joystickY, 10 * dt);
-    } else {
-      this.touchPitch = approach(this.touchPitch, 0, 8 * dt);
-    }
-
-    const response = 1 - Math.exp(-dt / 0.12);
-    this.filteredTilt += (this.rawTilt - this.filteredTilt) * response;
+    // Adaptive tilt filter matching board-race
+    const tiltError = this.rawTilt - this.filteredTilt;
+    const swing = clamp(Math.abs(tiltError) / 9, 0, 1);
+    const tiltTau = 0.11 - 0.085 * swing;
+    this.filteredTilt += tiltError * (1 - Math.exp(-dt / tiltTau));
     const tiltDegrees = Math.abs(this.filteredTilt);
-    const tiltMagnitude = clamp((tiltDegrees - 3) / 19, 0, 1);
+    const tiltMagnitude = clamp((tiltDegrees - 2) / 12, 0, 1);
     const tiltSteer = Math.sign(this.filteredTilt) * tiltMagnitude;
     if (this.mode === 'tilt' && Math.abs(tiltSteer) >= 0.42 &&
         (Math.abs(this.previousTiltActivity) < 0.24 || Math.abs(tiltSteer - this.previousTiltActivity) >= 0.5)) {
@@ -271,14 +245,12 @@ export class MobileControls {
     this.flightQueued = false;
     if (this.driftLabel) this.driftLabel.textContent = flightActive ? '空刹' : this.finalMode ? '刹' : '漂';
     if (this.driftSubLabel) this.driftSubLabel.textContent = flightActive ? 'AIR BRAKE' : this.finalMode ? 'BRAKE' : 'DRIFT';
-
-    const joystickPullBrake = flightActive && this.joystickActive && this.touchPitch < -0.65;
     return {
       throttle: 1,
       steer,
       drift: action && !flightActive && !this.finalMode,
       flightTrigger: this.finalMode ? false : flightTrigger,
-      airBrake: (action || joystickPullBrake) && (flightActive || this.finalMode),
+      airBrake: action && (flightActive || this.finalMode),
     };
   }
 
@@ -296,8 +268,6 @@ export class MobileControls {
 
   /** Shared start gate used by the driver contract screen and fallback GO. */
   requestGo(): void {
-    // Fullscreen must be requested synchronously from the GO click. Waiting
-    // for the sensor permission promise loses browser user activation.
     this.onFirstGesture();
     this.enterImmersiveMode();
     if (this.activation === 'ready') {
@@ -341,52 +311,91 @@ export class MobileControls {
     routeDirection: RouteTurnDirection | 'none' = 'none',
   ): void {
     if (!this.root) return;
+    const root = this.root;
+    const cache = this.actionStateCache;
     this.finalMode = state.flightMode === 'finish';
     const charges = Math.round(clamp(state.flightCharges, 0, 2));
-    this.root.style.setProperty('--mobile-drift-progress', String(clamp(state.boostCharge, 0, 1)));
-    this.root.style.setProperty('--mobile-bank-progress', String(clamp(state.driftBankProgress, 0, 1)));
-    this.root.style.setProperty('--mobile-boost-progress', String(clamp(state.boostRemaining, 0, 1)));
-    this.root.style.setProperty('--mobile-flight-progress', String(clamp(state.flightRemaining, 0, 1)));
-    this.root.style.setProperty('--mobile-airbrake-progress', String(clamp(state.flightAirBrake, 0, 1)));
-    this.root.classList.toggle('drift-release-ready', state.driftReleaseReady && state.flightCharges < 2);
-    this.root.classList.toggle('drift-bank-full', state.drifting && state.boostCharge >= 0.995);
-    this.root.classList.toggle('flight-ready', state.flightMode === 'stored');
-    this.root.classList.toggle('flight-extension-ready', state.flightMode === 'extend');
-    this.root.classList.toggle('flight-urgent', state.urgency !== 'normal' && state.flightMode !== 'finish');
-    this.root.classList.toggle('flight-critical', state.urgency === 'critical');
-    this.root.dataset.flightCharges = String(charges);
-    this.root.dataset.flightMode = state.flightMode;
-    this.root.dataset.leftMode = state.leftMode;
-    this.root.dataset.urgency = state.urgency;
+    this.setCssVar('--mobile-drift-progress', state.boostCharge);
+    this.setCssVar('--mobile-bank-progress', state.driftBankProgress);
+    this.setCssVar('--mobile-boost-progress', state.boostRemaining);
+    this.setCssVar('--mobile-flight-progress', state.flightRemaining);
+    this.setCssVar('--mobile-airbrake-progress', state.flightAirBrake);
+    root.classList.toggle('drift-release-ready', state.driftReleaseReady && state.flightCharges < 2);
+    root.classList.toggle('drift-bank-full', state.drifting && state.boostCharge >= 0.995);
+    root.classList.toggle('flight-ready', state.flightMode === 'stored');
+    root.classList.toggle('flight-extension-ready', state.flightMode === 'extend');
+    root.classList.toggle('flight-urgent', state.urgency !== 'normal' && state.flightMode !== 'finish');
+    root.classList.toggle('flight-critical', state.urgency === 'critical');
+    const chargesText = String(charges);
+    if (cache.charges !== chargesText) {
+      cache.charges = chargesText;
+      root.dataset.flightCharges = chargesText;
+    }
+    if (cache.flightMode !== state.flightMode) {
+      cache.flightMode = state.flightMode;
+      root.dataset.flightMode = state.flightMode;
+    }
+    if (cache.leftMode !== state.leftMode) {
+      cache.leftMode = state.leftMode;
+      root.dataset.leftMode = state.leftMode;
+    }
+    if (cache.urgency !== state.urgency) {
+      cache.urgency = state.urgency;
+      root.dataset.urgency = state.urgency;
+    }
     const flight = this.buttons.get('flight');
     if (flight) {
       const label = state.flightMode === 'extend'
-        ? `空中续航，消耗 1 次蓄能，当前剩余 ${charges} 次`
+        ? `空中续航，本飞最多起飞一次、续航一次；续航消耗 1 格，当前剩余 ${charges} 格`
         : state.flightMode === 'finish'
           ? '终点已就绪，保持水面航行并冲线'
         : state.flightMode === 'active'
           ? '飞行中，当前不可续航'
           : charges > 0 ? `飞行，已蓄能 ${charges} 次` : '飞行，尚未蓄能';
-      flight.setAttribute('aria-label', label);
-      flight.setAttribute('aria-disabled', this.finalMode ? 'true' : 'false');
+      if (cache.flightAria !== label) {
+        cache.flightAria = label;
+        flight.setAttribute('aria-label', label);
+        flight.setAttribute('aria-disabled', this.finalMode ? 'true' : 'false');
+      }
     }
-    if (this.flightLabel) this.flightLabel.textContent = state.flightMode === 'extend' ? '续' : state.flightMode === 'finish' ? '终' : '飞';
-    if (this.flightSubLabel) this.flightSubLabel.textContent = state.flightMode === 'extend' ? 'EXTEND' : state.flightMode === 'finish' ? 'FINAL' : 'FLIGHT';
-    const stock = this.buttons.get('flight')?.querySelector<HTMLElement>('.mobile-stock');
-    if (stock) stock.textContent = `x${charges}`;
-    this.root.classList.toggle('in-flight', state.flightPhase !== 'surface');
-    this.root.classList.toggle('turn-warning', turnWarning);
-    this.root.classList.toggle('route-action-bank', routeAction === 'bank');
-    this.root.classList.toggle('route-action-launch', routeAction === 'launch');
-    this.root.classList.toggle('route-action-turn', routeAction === 'turn');
-    this.root.classList.toggle('route-turn-left', routeAction === 'turn' && routeDirection === 'left');
-    this.root.classList.toggle('route-turn-right', routeAction === 'turn' && routeDirection === 'right');
+    const flightLabel = state.flightMode === 'extend' ? '续' : state.flightMode === 'finish' ? '终' : '飞';
+    const flightSubLabel = state.flightMode === 'extend' ? '每飞 1 次' : state.flightMode === 'finish' ? 'FINAL' : 'FLIGHT';
+    if (cache.flightLabel !== flightLabel) {
+      cache.flightLabel = flightLabel;
+      if (this.flightLabel) this.flightLabel.textContent = flightLabel;
+    }
+    if (cache.flightSubLabel !== flightSubLabel) {
+      cache.flightSubLabel = flightSubLabel;
+      if (this.flightSubLabel) this.flightSubLabel.textContent = flightSubLabel;
+    }
+    if (cache.stock !== chargesText) {
+      cache.stock = chargesText;
+      const stock = this.buttons.get('flight')?.querySelector<HTMLElement>('.mobile-stock');
+      if (stock) stock.textContent = `x${charges}`;
+    }
+    root.classList.toggle('in-flight', state.flightPhase !== 'surface');
+    root.classList.toggle('turn-warning', turnWarning);
+    root.classList.toggle('route-action-bank', routeAction === 'bank');
+    root.classList.toggle('route-action-launch', routeAction === 'launch');
+    root.classList.toggle('route-action-turn', routeAction === 'turn');
+    root.classList.toggle('route-turn-left', routeAction === 'turn' && routeDirection === 'left');
+    root.classList.toggle('route-turn-right', routeAction === 'turn' && routeDirection === 'right');
     const leftLabel = state.flightPhase !== 'surface' ? '空刹' : state.leftMode === 'finish' ? '刹' : state.leftMode === 'boost' ? '加' : '漂';
     const leftSubLabel = state.flightPhase !== 'surface' ? 'AIR BRAKE' : state.leftMode === 'finish' ? 'BRAKE' : state.leftMode === 'boost' ? 'BOOST' : 'DRIFT';
-    if (this.driftLabel) this.driftLabel.textContent = leftLabel;
-    if (this.driftSubLabel) this.driftSubLabel.textContent = leftSubLabel;
-    const drift = this.buttons.get('drift');
-    if (drift) drift.setAttribute('aria-label', state.flightPhase !== 'surface' ? '空刹' : state.leftMode === 'finish' ? '回港刹车' : state.leftMode === 'boost' ? '加速中' : '漂移');
+    if (cache.leftLabel !== leftLabel) {
+      cache.leftLabel = leftLabel;
+      if (this.driftLabel) this.driftLabel.textContent = leftLabel;
+    }
+    if (cache.leftSubLabel !== leftSubLabel) {
+      cache.leftSubLabel = leftSubLabel;
+      if (this.driftSubLabel) this.driftSubLabel.textContent = leftSubLabel;
+    }
+    const driftAria = state.flightPhase !== 'surface' ? '空刹' : state.leftMode === 'finish' ? '回港刹车' : state.leftMode === 'boost' ? '加速中' : '漂移';
+    if (cache.driftAria !== driftAria) {
+      cache.driftAria = driftAria;
+      const drift = this.buttons.get('drift');
+      if (drift) drift.setAttribute('aria-label', driftAria);
+    }
   }
 
   reset(): void {
@@ -395,7 +404,6 @@ export class MobileControls {
     this.anyPressQueued = false;
     this.goQueued = false;
     this.touchSteer = 0;
-    this.touchPitch = 0;
     this.filteredTilt = 0;
     this.previousTiltActivity = 0;
   }
@@ -421,6 +429,9 @@ export class MobileControls {
     angle: number;
     landscape: boolean;
     fullscreenRequests: number;
+    gestureSuppressions: number;
+    pageScale: number;
+    overlayHidden: boolean;
   } {
     return {
       mode: this.mode,
@@ -430,64 +441,46 @@ export class MobileControls {
       angle: this.calibrationAngle,
       landscape: this.landscape,
       fullscreenRequests: this.fullscreenRequests,
+      gestureSuppressions: this.gestureSuppressions,
+      pageScale: window.visualViewport?.scale ?? 1,
+      overlayHidden: this.root?.classList.contains('overlay-hidden') ?? false,
     };
   }
 
-  private startJoystick(event: PointerEvent): void {
-    if (this.mode !== 'touch') return;
-    if (this.controlPhase === 'inactive' || this.activation !== 'ready') return;
-    if (this.joystickPointerId !== null) return;
-    this.joystickPointerId = event.pointerId;
-    this.joystickOriginX = event.clientX;
-    this.joystickOriginY = event.clientY;
-    this.joystickX = 0;
-    this.joystickY = 0;
-    this.joystickActive = true;
-    if (this.joystick) {
-      this.joystick.style.left = `${this.joystickOriginX}px`;
-      this.joystick.style.top = `${this.joystickOriginY}px`;
-      this.joystick.classList.add('active');
-      if (this.joystickKnob) {
-        this.joystickKnob.style.transition = 'none';
-        this.joystickKnob.style.transform = 'translate(0px, 0px)';
+  private readonly suppressPageGesture = (event: Event): void => {
+    if (!this.shouldSuppressPageGesture() || !event.cancelable) return;
+    event.preventDefault();
+    this.gestureSuppressions++;
+  };
+
+  private shouldSuppressPageGesture(): boolean {
+    return this.enabled && this.landscape && this.activation === 'ready' &&
+      this.controlPhase !== 'inactive' && !this.root?.classList.contains('overlay-hidden');
+  }
+
+  private readonly suppressDoubleTapZoom = (event: TouchEvent): void => {
+    if (!this.shouldSuppressPageGesture() || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    if (event.type === 'touchstart') {
+      const now = performance.now();
+      const rapid = this.controlTapAnchorAt !== null && now - this.controlTapAnchorAt <= DOUBLE_TAP_WINDOW_MS;
+      this.controlTapAnchorAt = now;
+      this.zoomSuspectTouchId = rapid ? touch.identifier : null;
+      if (rapid && event.cancelable) {
+        event.preventDefault();
+        this.gestureSuppressions++;
       }
+      return;
     }
-  }
+    if (this.zoomSuspectTouchId !== null && touch.identifier === this.zoomSuspectTouchId) {
+      if (event.cancelable) event.preventDefault();
+      this.zoomSuspectTouchId = null;
+    }
+  };
 
-  private updateJoystick(event: PointerEvent): void {
-    if (!this.joystickActive || event.pointerId !== this.joystickPointerId) return;
-    const rawDx = event.clientX - this.joystickOriginX;
-    const rawDy = event.clientY - this.joystickOriginY;
-    const dist = Math.hypot(rawDx, rawDy);
-    const clampedDist = Math.min(dist, JOYSTICK_MAX_RADIUS);
-    const nx = dist > 1e-4 ? (rawDx / dist) : 0;
-    const ny = dist > 1e-4 ? (rawDy / dist) : 0;
-    const targetX = nx * clampedDist;
-    const targetY = ny * clampedDist;
-    this.joystickX = targetX / JOYSTICK_MAX_RADIUS; // -1 (left) .. 1 (right)
-    this.joystickY = -targetY / JOYSTICK_MAX_RADIUS; // 1 (forward/dive) .. -1 (pull back/climb)
-    if (this.joystickKnob) {
-      this.joystickKnob.style.transform = `translate(${targetX.toFixed(1)}px, ${targetY.toFixed(1)}px)`;
-    }
-    if (Math.abs(this.joystickX) >= 0.25 || Math.abs(this.joystickY) >= 0.25) {
-      this.activitySerialValue++;
-    }
-  }
-
-  private stopJoystick(event?: PointerEvent): void {
-    if (event && this.joystickPointerId !== null && event.pointerId !== this.joystickPointerId) return;
-    this.joystickPointerId = null;
-    this.joystickActive = false;
-    this.joystickX = 0;
-    this.joystickY = 0;
-    if (this.joystickKnob) {
-      this.joystickKnob.style.transition = 'transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-      this.joystickKnob.style.transform = 'translate(0px, 0px)';
-    }
-    if (this.joystick) {
-      this.joystick.classList.remove('active');
-    }
-  }
+  private readonly releasePointerAtWindow = (event: PointerEvent): void => {
+    if (this.activePointers.delete(event.pointerId)) this.syncHeldButtons();
+  };
 
   private async activateTilt(): Promise<void> {
     if (this.permissionPending) return;
@@ -585,8 +578,8 @@ export class MobileControls {
       this.root.classList.toggle('activated', state === 'ready');
     }
     if (this.modeButton) {
-      this.modeButton.textContent = this.mode === 'tilt' ? '转向 · 重力' : '转向 · 触控';
-      this.modeButton.setAttribute('aria-label', this.mode === 'tilt' ? '当前重力转向，点击切换触控' : '当前触控转向，点击切换重力');
+      this.modeButton.textContent = this.mode === 'tilt' ? '转向 · 体感' : '转向 · 触控';
+      this.modeButton.setAttribute('aria-label', this.mode === 'tilt' ? '当前体感转向，点击切换触控' : '当前触控转向，点击切换体感转向');
     }
     this.syncStartButton();
   }
@@ -655,21 +648,14 @@ export class MobileControls {
       button.setPointerCapture(event.pointerId);
     } catch {
       // Some WebViews reject capture even though the pointer event is valid.
-      // Window blur/visibility and the element's pointerup/cancel still release it.
     }
     if (action === 'flight') this.flightQueued = true;
-    if (action === 'left' || action === 'right') {
-      this.startJoystick(event);
-    }
     this.syncHeldButtons();
   }
 
   private pointerUp(event: PointerEvent): void {
     this.activePointers.delete(event.pointerId);
     this.syncHeldButtons();
-    if (event.pointerId === this.joystickPointerId) {
-      this.stopJoystick(event);
-    }
   }
 
   private syncHeldButtons(): void {
@@ -684,9 +670,7 @@ export class MobileControls {
   private releaseAll(): void {
     this.activePointers.clear();
     this.syncHeldButtons();
-    this.stopJoystick();
     this.touchSteer = 0;
-    this.touchPitch = 0;
   }
 }
 
